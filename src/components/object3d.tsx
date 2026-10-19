@@ -12,7 +12,13 @@ export default function Object3D() {
     if (!host) return;
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'low-power' });
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'low-power' });
+    } catch {
+      // The decorative scene must never prevent sign-in on devices without WebGL.
+      return;
+    }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
