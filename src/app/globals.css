@@ -677,3 +677,6 @@ img, svg, canvas, table { max-width: 100%; }
   .scan-panel .panel-head { padding: 14px 16px; }
   .scan-meta .label { font-size: 10px; letter-spacing: .06em; }
 }
+
+.bubble-ai[dir='auto'] .md ul, .bubble-ai[dir='auto'] .md ol { padding-inline-start: 20px; padding-left: 0; }
+.bubble-ai .chat-card, .bubble-ai code { direction: ltr; unicode-bidi: isolate; }

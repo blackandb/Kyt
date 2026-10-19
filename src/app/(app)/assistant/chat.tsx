@@ -189,9 +189,9 @@ export function Chat({ configured }: { configured: boolean }) {
           ) : (
             messages.map((m, i) =>
               m.role === 'user' ? (
-                <div key={i} className="bubble-user">{m.content}</div>
+                <div key={i} className="bubble-user" dir="auto">{m.content}</div>
               ) : (
-                <div key={i} className={`bubble-ai${m.error ? ' err' : ''}`}>
+                <div key={i} className={`bubble-ai${m.error ? ' err' : ''}`} dir="auto">
                   <Markdown text={m.content} />
                   {m.checks?.length ? <CheckCards checks={m.checks} /> : null}
                 </div>
@@ -226,6 +226,7 @@ export function Chat({ configured }: { configured: boolean }) {
               }
             }}
             rows={1}
+            dir="auto"
             placeholder={configured ? 'Paste an address, a tx hash, or ask a question…' : 'Assistant not configured'}
             disabled={!configured}
             spellCheck={false}
