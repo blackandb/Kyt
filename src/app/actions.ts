@@ -23,6 +23,9 @@ export type ActionState = { ok?: boolean; message?: string } | null;
 export async function sendMagicLink(_: ActionState, form: FormData): Promise<ActionState> {
   const email = String(form.get('email') || '').trim().toLowerCase();
   if (!email) return { ok: false, message: 'Enter your email.' };
+  if (!process.env.OWNER_EMAIL?.trim()) {
+    return { ok: false, message: 'Sign-in is not configured yet. The application owner email must be set.' };
+  }
   if (email !== env.ownerEmail()) {
     return { ok: true, message: 'If this email is authorized, a sign-in link is on its way.' };
   }
