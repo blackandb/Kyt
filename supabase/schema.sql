@@ -77,6 +77,9 @@ create table if not exists public.settings (
   min_amount numeric not null default 1,
   cache_hours int not null default 24,
   sanctions_synced_at timestamptz,
+  access_code_hash text,
+  access_failed int not null default 0,
+  access_locked_until timestamptz,
   updated_at timestamptz not null default now()
 );
 

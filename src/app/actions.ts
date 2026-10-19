@@ -1,10 +1,11 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { headers } from 'next/headers';
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { requireOwner } from '@/lib/auth';
-import { authClient } from '@/lib/supabase/server';
+import { codeVersion, hashCode, verifyCode } from '@/lib/passcode';
+import { SESSION_COOKIE, SESSION_MAX_AGE, createSession } from '@/lib/session';
 import { db } from '@/lib/supabase/admin';
 import { env } from '@/lib/env';
 import { isTronAddress } from '@/lib/tron';
@@ -18,32 +19,76 @@ import { renderAlert, sendEmail } from '@/lib/email';
 
 export type ActionState = { ok?: boolean; message?: string } | null;
 
-/* ---------- Auth ---------- */
+/* ---------- Access ---------- */
 
-export async function sendMagicLink(_: ActionState, form: FormData): Promise<ActionState> {
-  const email = String(form.get('email') || '').trim().toLowerCase();
-  if (!email) return { ok: false, message: 'Enter your email.' };
-  if (!process.env.OWNER_EMAIL?.trim()) {
-    return { ok: false, message: 'Sign-in is not configured yet. The application owner email must be set.' };
+const MAX_ATTEMPTS = 5;
+const LOCK_MINUTES = 15;
+
+export async function unlock(_: ActionState, form: FormData): Promise<ActionState> {
+  const code = String(form.get('code') || '');
+  if (!code) return { ok: false, message: 'Enter your access code.' };
+
+  const { data } = await db().from('settings').select('access_code_hash, access_failed, access_locked_until').eq('id', 1).single();
+  const row = data as { access_code_hash: string | null; access_failed: number; access_locked_until: string | null } | null;
+  if (!row?.access_code_hash) return { ok: false, message: 'Access is not configured yet.' };
+
+  if (row.access_locked_until && new Date(row.access_locked_until).getTime() > Date.now()) {
+    const mins = Math.ceil((new Date(row.access_locked_until).getTime() - Date.now()) / 60_000);
+    return { ok: false, message: `Too many attempts. Try again in ${mins} min.` };
   }
-  if (email !== env.ownerEmail()) {
-    return { ok: true, message: 'If this email is authorized, a sign-in link is on its way.' };
+
+  if (!verifyCode(code, row.access_code_hash)) {
+    const failed = (row.access_failed || 0) + 1;
+    await db()
+      .from('settings')
+      .update({
+        access_failed: failed >= MAX_ATTEMPTS ? 0 : failed,
+        access_locked_until: failed >= MAX_ATTEMPTS ? new Date(Date.now() + LOCK_MINUTES * 60_000).toISOString() : null
+      })
+      .eq('id', 1);
+    await new Promise((r) => setTimeout(r, 700));
+    return { ok: false, message: failed >= MAX_ATTEMPTS ? `Too many attempts. Locked for ${LOCK_MINUTES} min.` : 'Incorrect access code.' };
   }
-  const h = await headers();
-  const origin = env.appUrl() || `${h.get('x-forwarded-proto') || 'https'}://${h.get('host')}`;
-  const supabase = await authClient();
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo: `${origin}/auth/callback`, shouldCreateUser: true }
+
+  await db().from('settings').update({ access_failed: 0, access_locked_until: null }).eq('id', 1);
+  (await cookies()).set(SESSION_COOKIE, await createSession(codeVersion(row.access_code_hash)), {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax',
+    path: '/',
+    maxAge: SESSION_MAX_AGE
   });
-  if (error) return { ok: false, message: error.message };
-  return { ok: true, message: 'If this email is authorized, a sign-in link is on its way.' };
+  redirect('/check');
 }
 
 export async function signOut() {
-  const supabase = await authClient();
-  await supabase.auth.signOut();
+  (await cookies()).delete(SESSION_COOKIE);
   redirect('/login');
+}
+
+export async function changeAccessCode(_: ActionState, form: FormData): Promise<ActionState> {
+  await requireOwner();
+  const current = String(form.get('current') || '');
+  const next = String(form.get('next') || '');
+  const confirm = String(form.get('confirm') || '');
+  if (next.length < 8) return { ok: false, message: 'The new code needs at least 8 characters.' };
+  if (next !== confirm) return { ok: false, message: 'The new codes do not match.' };
+
+  const { data } = await db().from('settings').select('access_code_hash').eq('id', 1).single();
+  const stored = (data as { access_code_hash: string | null } | null)?.access_code_hash;
+  if (!verifyCode(current, stored)) return { ok: false, message: 'Current code is incorrect.' };
+
+  const hash = hashCode(next);
+  const { error } = await db().from('settings').update({ access_code_hash: hash, access_failed: 0, access_locked_until: null }).eq('id', 1);
+  if (error) return { ok: false, message: error.message };
+  (await cookies()).set(SESSION_COOKIE, await createSession(codeVersion(hash)), {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax',
+    path: '/',
+    maxAge: SESSION_MAX_AGE
+  });
+  return { ok: true, message: 'Access code changed. Other devices are signed out.' };
 }
 
 /* ---------- Wallets ---------- */

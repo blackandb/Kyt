@@ -98,6 +98,7 @@ ${
 export async function sendEmail(subject: string, html: string, text: string): Promise<{ ok: boolean; error?: string }> {
   const key = env.resendKey();
   if (!key) return { ok: false, error: 'RESEND_API_KEY is not set' };
+  if (!env.ownerEmail()) return { ok: false, error: 'OWNER_EMAIL is not set — alerts have no recipient' };
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'content-type': 'application/json' },

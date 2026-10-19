@@ -1,10 +1,12 @@
+import { redirect } from 'next/navigation';
 import { ObjectTile } from '@/components/object-tile';
+import { isAuthed } from '@/lib/auth';
 import { LoginForm } from './login-form';
 
 export const dynamic = 'force-dynamic';
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  const { error } = await searchParams;
+export default async function LoginPage() {
+  if (await isAuthed()) redirect('/check');
   return (
     <main className="login">
       <div className="login-card">
@@ -21,11 +23,6 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           Wallet monitoring and risk screening for incoming transfers.
         </p>
         <div className="fade-up d3" style={{ width: '100%' }}>
-          {error ? (
-            <div className="notice err" style={{ marginBottom: 10 }}>
-              The sign-in link is invalid or expired. Request a new one.
-            </div>
-          ) : null}
           <LoginForm />
         </div>
       </div>

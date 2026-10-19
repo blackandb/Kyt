@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { authClient } from '@/lib/supabase/server';
+import { isAuthed } from '@/lib/auth';
 import { env } from '@/lib/env';
 import { chat, type ChatTurn } from '@/lib/ai';
 
@@ -7,11 +7,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
-  const supabase = await authClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
-  if (!user || (user.email || '').toLowerCase() !== env.ownerEmail()) {
+  if (!(await isAuthed())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   if (!env.aiConfigured()) {

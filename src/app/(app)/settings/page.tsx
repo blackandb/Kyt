@@ -1,14 +1,14 @@
 import { getSettings } from '@/lib/signals';
 import { deepCheckConfigured } from '@/lib/amlbot';
 import { env } from '@/lib/env';
-import { SettingsForm, TestEmailButton } from './settings-forms';
+import { AccessCodeForm, SettingsForm, TestEmailButton } from './settings-forms';
 
 export default async function SettingsPage() {
   const settings = await getSettings();
   const status = [
     { label: 'AI assistant (Claude)', ok: env.aiConfigured(), hint: `Model ${env.anthropicModel()}` },
     { label: 'TronGrid API key', ok: !!env.trongridKey(), hint: 'Higher rate limits for monitoring' },
-    { label: 'Email alerts (Resend)', ok: !!env.resendKey(), hint: `Alerts go to ${env.ownerEmail()}` },
+    { label: 'Email alerts (Resend)', ok: !!env.resendKey(), hint: env.ownerEmail() ? `Alerts go to ${env.ownerEmail()}` : 'Set OWNER_EMAIL to receive alerts' },
     { label: 'Deep screening', ok: deepCheckConfigured(), hint: 'Optional paid provider for large amounts' },
     { label: 'App URL', ok: !!env.appUrl(), hint: 'Used for links in alert emails' }
   ];
@@ -54,10 +54,19 @@ export default async function SettingsPage() {
             </div>
             <div className="panel-pad stack">
               <div className="faint" style={{ fontSize: 13 }}>
-                Sends a sample alert with clearly marked test data to {env.ownerEmail()}.
+                Sends a sample alert with clearly marked test data to {env.ownerEmail() || 'OWNER_EMAIL (not set)'}.
               </div>
               <TestEmailButton />
             </div>
+          </div>
+        </section>
+        <section className="panel">
+          <div className="panel-head">
+            <h2>Private access</h2>
+            <span className="label">Access code</span>
+          </div>
+          <div className="panel-pad">
+            <AccessCodeForm />
           </div>
         </section>
       </div>

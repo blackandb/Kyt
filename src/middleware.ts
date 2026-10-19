@@ -1,52 +1,22 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
+import { SESSION_COOKIE, readSession } from '@/lib/session';
 
-const PUBLIC_PATHS = ['/login', '/auth', '/api/cron'];
+const PUBLIC_PATHS = ['/login', '/api/cron'];
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({ request });
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(list) {
-          list.forEach(({ name, value }) => request.cookies.set(name, value));
-          response = NextResponse.next({ request });
-          list.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
-        }
-      }
-    }
-  );
-
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
-
   const path = request.nextUrl.pathname;
   const isPublic = PUBLIC_PATHS.some((p) => path === p || path.startsWith(`${p}/`));
-  const owner = (process.env.OWNER_EMAIL || '').trim().toLowerCase();
-  const allowed = !!user && (user.email || '').toLowerCase() === owner;
+  const signedIn = !!(await readSession(request.cookies.get(SESSION_COOKIE)?.value));
 
-  if (!isPublic && !allowed) {
+  if (!isPublic && !signedIn) {
+    if (path.startsWith('/api/')) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     url.search = '';
     return NextResponse.redirect(url);
   }
 
-  if (path === '/login' && allowed) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/check';
-    url.search = '';
-    return NextResponse.redirect(url);
-  }
-
-  return response;
+  return NextResponse.next();
 }
 
 export const config = {

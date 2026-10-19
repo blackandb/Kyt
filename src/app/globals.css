@@ -680,3 +680,5 @@ img, svg, canvas, table { max-width: 100%; }
 
 .bubble-ai[dir='auto'] .md ul, .bubble-ai[dir='auto'] .md ol { padding-inline-start: 20px; padding-left: 0; }
 .bubble-ai .chat-card, .bubble-ai code { direction: ltr; unicode-bidi: isolate; }
+.access-input { text-align: center; letter-spacing: .08em; height: 44px; }
+.access-input::placeholder { letter-spacing: .14em; text-transform: uppercase; font-family: var(--mono); font-size: 12px; }

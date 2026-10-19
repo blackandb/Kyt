@@ -15,7 +15,7 @@ const NAV = [
 ];
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const user = await requireOwner();
+  await requireOwner();
   return (
     <div className="shell">
       <aside className="sidebar">
@@ -34,7 +34,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </NavLink>
         ))}
         <div className="sidebar-foot">
-          <div className="owner">{user.email}</div>
+          <div className="owner">Private access</div>
           <form action={signOut}>
             <button className="btn btn-ghost btn-sm" type="submit" style={{ width: '100%' }}>
               <IconLogout /> Sign out

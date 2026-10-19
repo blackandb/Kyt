@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState, useState } from 'react';
-import { saveSettings, sendTestEmail } from '@/app/actions';
+import { changeAccessCode, saveSettings, sendTestEmail } from '@/app/actions';
 import { Notice, SubmitButton } from '@/components/ui';
 import type { Settings } from '@/lib/types';
 
@@ -75,6 +75,34 @@ export function TestEmailButton() {
         </SubmitButton>
       </div>
       <Notice state={state} />
+    </form>
+  );
+}
+
+export function AccessCodeForm() {
+  const [state, action] = useActionState(changeAccessCode, null);
+  return (
+    <form action={action} className="stack">
+      <div className="form-grid">
+        <label className="field">
+          <span className="label">Current code</span>
+          <input className="input" type="password" name="current" autoComplete="current-password" required />
+        </label>
+        <label className="field">
+          <span className="label">New code</span>
+          <input className="input" type="password" name="next" autoComplete="new-password" minLength={8} required />
+        </label>
+        <label className="field">
+          <span className="label">Repeat new code</span>
+          <input className="input" type="password" name="confirm" autoComplete="new-password" minLength={8} required />
+        </label>
+      </div>
+      <div className="row row-wrap">
+        <SubmitButton className="btn btn-ghost" pendingText="Saving">
+          Change access code
+        </SubmitButton>
+        <Notice state={state} />
+      </div>
     </form>
   );
 }

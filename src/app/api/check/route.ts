@@ -1,5 +1,4 @@
-import { authClient } from '@/lib/supabase/server';
-import { env } from '@/lib/env';
+import { isAuthed } from '@/lib/auth';
 import { runCheck } from '@/lib/check';
 import { isTronAddress, isTxHash } from '@/lib/tron';
 import type { CheckStep } from '@/lib/types';
@@ -8,11 +7,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
-  const supabase = await authClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
-  if (!user || (user.email || '').toLowerCase() !== env.ownerEmail()) {
+  if (!(await isAuthed())) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
