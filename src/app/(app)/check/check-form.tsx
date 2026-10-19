@@ -32,6 +32,12 @@ function AddressResult({ r, title }: { r: AddressReport; title: string }) {
             <span>Age: {ageDays !== null ? `${ageDays} days` : 'unknown'}</span>
             <span>Token transfers: {s.trc20Count === null ? 'unknown' : s.trc20Count >= 50 ? '50+' : s.trc20Count}</span>
             <span>Tether: {s.tetherBlacklisted === null ? 'unknown' : s.tetherBlacklisted ? 'frozen' : 'clear'}</span>
+            {s.trace ? (
+              <span>
+                Fund trace: {s.trace.hits.length ? `${s.trace.hits.length} tainted source${s.trace.hits.length === 1 ? '' : 's'}` : 'clean'} ·{' '}
+                {s.trace.scanned} checked
+              </span>
+            ) : null}
           </div>
         </div>
         <ScoreRing score={r.risk.score} level={r.risk.level} size={116} />

@@ -74,6 +74,37 @@ export function scoreAddress(
     floor = Math.max(floor, s.flagged.severity);
   }
 
+  if (s.trace) {
+    const reasonText = { tether_blacklist: 'an address frozen by Tether', sanctions: 'a sanctioned address', flagged: 'an address you flagged' } as const;
+    const severe = (r: string) => r === 'tether_blacklist' || r === 'sanctions';
+    const h1 = s.trace.hits.filter((h) => h.hop === 1);
+    const h2 = s.trace.hits.filter((h) => h.hop === 2);
+    const h1Severe = h1.find((h) => severe(h.reason));
+    const h1Flag = h1.find((h) => h.reason === 'flagged');
+    const h2Severe = h2.find((h) => severe(h.reason));
+    const h2Flag = h2.find((h) => h.reason === 'flagged');
+
+    if (h1Severe) {
+      add('trace_hop1', `Sender received funds directly from ${reasonText[h1Severe.reason]} (${short(h1Severe.address)})`, 60, 'bad');
+      floor = Math.max(floor, 75);
+    } else if (h1Flag) {
+      add('trace_hop1_flag', `Sender received funds directly from ${reasonText.flagged} (${short(h1Flag.address)})`, 35, 'bad');
+    }
+    if (h2Severe) {
+      add('trace_hop2', `Funds trace back 2 steps to ${reasonText[h2Severe.reason]} (${short(h2Severe.address)})`, 30, 'warn');
+    } else if (h2Flag) {
+      add('trace_hop2_flag', `Funds trace back 2 steps to ${reasonText.flagged} (${short(h2Flag.address)})`, 15, 'warn');
+    }
+    if (!s.trace.hits.length && s.trace.scanned > 0) {
+      reasons.push({
+        code: 'trace_clear',
+        label: `Fund sources clean — ${s.trace.scanned} upstream addresses checked over 2 steps`,
+        weight: 0,
+        tone: 'ok'
+      });
+    }
+  }
+
   if (s.poisoningOf) {
     add('poisoning', `Looks like ${short(s.poisoningOf)} but is a different address (possible address poisoning)`, 45, 'bad');
   }

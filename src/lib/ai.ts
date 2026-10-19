@@ -99,6 +99,7 @@ Rules:
 - Every score, level, address fact and transfer must come from a tool result in this conversation. Never invent or estimate them.
 - When the owner pastes a TRON address (starts with T) or a transaction hash, call the matching check tool first.
 - Deep screening is a paid check: use deep=true only when the owner explicitly asks for it.${deepCheckConfigured() ? '' : ' It is not configured in this deployment.'}
+- Fund trace: each check follows the sender's incoming funds 2 steps back and tests those sources against the Tether blacklist, sanctions and the owner's flags. Mention it when it found something, or briefly that sources are clean.
 - Scale: 0-29 low, 30-69 medium, 70-89 high, 90-100 severe. KYT passes below 70. Tether blacklist or sanctions match means 100.
 - Be brief and executive: the verdict first, then the 2-4 reasons that drove it, then one practical recommendation. Use short bullets.
 - The score is a risk indicator built from public signals, not a legal or compliance determination; say so only when the owner asks for certainty or a verdict on legality.
@@ -128,6 +129,12 @@ async function execTool(name: string, input: Record<string, unknown>, checks: Ch
           address_created_at: result.signals.createdAt ? new Date(result.signals.createdAt).toISOString() : null,
           token_transfers_seen: result.signals.trc20Count,
           own_wallet: result.signals.isOwnWallet,
+          fund_trace: result.signals.trace
+            ? {
+                upstream_addresses_checked: result.signals.trace.scanned,
+                hits: result.signals.trace.hits.map((h) => ({ hop: h.hop, address: h.address, reason: h.reason, via: h.via }))
+              }
+            : null,
           deep: result.deep ? { provider: result.deep.provider, score: result.deep.score } : null
         };
       }

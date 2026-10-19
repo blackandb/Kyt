@@ -138,6 +138,17 @@ export async function fetchIncomingTrc20(address: string, minTimestamp: number, 
   return out.filter((t) => t.to === address && TOKENS[t.token_info?.address]);
 }
 
+export async function fetchRecentIncoming(address: string, limit = 50) {
+  const params = new URLSearchParams({
+    only_to: 'true',
+    only_confirmed: 'true',
+    limit: String(limit),
+    order_by: 'block_timestamp,desc'
+  });
+  const res = await call<Trc20Page>(`/v1/accounts/${address}/transactions/trc20?${params}`);
+  return (res.data || []).filter((t) => t.to === address && TOKENS[t.token_info?.address]);
+}
+
 export async function fetchAccount(address: string) {
   const res = await call<{ data: { create_time?: number; address?: string }[] }>(`/v1/accounts/${address}`);
   const acc = res.data?.[0];

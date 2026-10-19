@@ -58,7 +58,7 @@ src/app/api/export/           CSV export
 | APP_URL | yes | Your Vercel domain, e.g. https://kyt.vercel.app |
 | CRON_SECRET | yes | Any long random string; same value in scheduler.sql |
 | ANTHROPIC_API_KEY | for Assistant | console.anthropic.com → API Keys |
-| ANTHROPIC_MODEL | no | Default claude-sonnet-5-5 |
+| ANTHROPIC_MODEL | no | Default claude-haiku-5-5 |
 | TRONGRID_API_KEY | recommended | trongrid.io → API Keys |
 | RESEND_API_KEY | for email alerts | resend.com → API Keys |
 | ALERT_FROM | for email alerts | Sender on a domain verified in Resend |

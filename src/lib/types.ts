@@ -18,6 +18,24 @@ export type AddressSignals = {
   trc20Count: number | null;
   isOwnWallet: boolean;
   poisoningOf: string | null;
+  trace: TraceResult | null;
+};
+
+export type TraceHit = {
+  address: string;
+  hop: 1 | 2;
+  via: string | null;
+  reason: 'tether_blacklist' | 'sanctions' | 'flagged';
+  label: string | null;
+  amount: string;
+  token: string;
+};
+
+export type TraceResult = {
+  scanned: number;
+  sources: number;
+  hits: TraceHit[];
+  tracedAt: string;
 };
 
 export type DeepResult = {

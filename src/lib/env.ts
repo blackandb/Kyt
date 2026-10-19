@@ -19,7 +19,7 @@ export const env = {
     process.env.SANCTIONS_TRX_URL ||
     'https://raw.githubusercontent.com/0xB10C/ofac-sanctioned-digital-currency-addresses/lists/sanctioned_addresses_TRX.txt',
   anthropicKey: () => required('ANTHROPIC_API_KEY'),
-  anthropicModel: () => process.env.ANTHROPIC_MODEL || 'claude-sonnet-5-5',
+  anthropicModel: () => process.env.ANTHROPIC_MODEL || 'claude-haiku-5-5',
   aiConfigured: () => !!process.env.ANTHROPIC_API_KEY,
   amlbot: () => ({
     accessId: process.env.AMLBOT_ACCESS_ID || '',

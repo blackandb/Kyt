@@ -3,11 +3,12 @@ import { db } from '@/lib/supabase/admin';
 import { fetchAccount, fetchTrc20Count, isTetherBlacklisted, isTronAddress } from '@/lib/tron';
 import { looksLike } from '@/lib/risk';
 import { deepCheck } from '@/lib/amlbot';
+import { traceFunds } from '@/lib/trace';
 import type { AddressSignals, DeepResult, FlaggedAddress, Settings } from '@/lib/types';
 
 type CachedRow = {
   address: string;
-  signals: Pick<AddressSignals, 'tetherBlacklisted' | 'createdAt' | 'activated' | 'trc20Count'>;
+  signals: Pick<AddressSignals, 'tetherBlacklisted' | 'createdAt' | 'activated' | 'trc20Count' | 'trace'>;
   deep: DeepResult | null;
   deep_checked_at: string | null;
   checked_at: string;
@@ -50,7 +51,8 @@ export async function collectSignals(
     activated: false,
     trc20Count: null,
     isOwnWallet: ctx.own.has(address),
-    poisoningOf: null
+    poisoningOf: null,
+    trace: null
   };
   if (!valid) return { signals: base, deep: null };
 
@@ -70,12 +72,13 @@ export async function collectSignals(
   if (fresh && cached) {
     live = cached.signals;
   } else {
-    const [blacklisted, account, count] = await Promise.all([
+    const [blacklisted, account, count, trace] = await Promise.all([
       isTetherBlacklisted(address),
       fetchAccount(address).catch(() => ({ activated: false, createdAt: null })),
-      fetchTrc20Count(address).catch(() => null)
+      fetchTrc20Count(address).catch(() => null),
+      base.isOwnWallet ? Promise.resolve(null) : traceFunds(address, ctx).catch(() => null)
     ]);
-    live = { tetherBlacklisted: blacklisted, createdAt: account.createdAt, activated: account.activated, trc20Count: count };
+    live = { tetherBlacklisted: blacklisted, createdAt: account.createdAt, activated: account.activated, trc20Count: count, trace };
   }
 
   let deep: DeepResult | null = cached?.deep ?? null;

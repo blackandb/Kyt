@@ -125,6 +125,62 @@ export default async function TransferPage({ params }: { params: Promise<{ id: s
           </div>
         </section>
 
+        {s.trace ? (
+          <section className="panel">
+            <div className="panel-head">
+              <h2>Fund trace</h2>
+              <span className="label">
+                2 steps · {s.trace.scanned} addresses checked
+              </span>
+            </div>
+            <div className="panel-pad">
+              {s.trace.hits.length === 0 ? (
+                <div className="row" style={{ gap: 10 }}>
+                  <span className="badge badge-low">
+                    <span className="dot" /> Clean
+                  </span>
+                  <span className="muted" style={{ fontSize: 13 }}>
+                    None of the sender&apos;s {s.trace.sources} main sources, or their sources, are frozen, sanctioned or flagged.
+                  </span>
+                </div>
+              ) : (
+                <div className="table-wrap">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Step</th>
+                        <th>Source</th>
+                        <th>Finding</th>
+                        <th>Via</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {s.trace.hits.map((h) => (
+                        <tr key={`${h.hop}-${h.address}`}>
+                          <td className="mono">{h.hop}</td>
+                          <td>
+                            <a className="mono" style={{ fontSize: 12.5 }} href={explorer.address(h.address)} target="_blank" rel="noreferrer">
+                              {h.address.slice(0, 8)}…{h.address.slice(-6)}
+                            </a>
+                          </td>
+                          <td>
+                            <span className={`badge ${h.reason === 'flagged' ? 'badge-high' : 'badge-severe'}`}>
+                              {h.reason === 'tether_blacklist' ? 'Frozen by Tether' : h.reason === 'sanctions' ? 'Sanctioned' : 'Flagged by you'}
+                            </span>
+                          </td>
+                          <td className="mono faint" style={{ fontSize: 12.5 }}>
+                            {h.via ? `${h.via.slice(0, 8)}…${h.via.slice(-6)}` : 'direct'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </section>
+        ) : null}
+
         <section className="panel panel-pad row row-wrap spread">
           <div>
             <div style={{ fontWeight: 500 }}>Actions</div>
