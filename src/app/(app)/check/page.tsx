@@ -1,11 +1,11 @@
 import Link from 'next/link';
+import { Suspense } from 'react';
 import { db } from '@/lib/supabase/admin';
 import { deepCheckConfigured } from '@/lib/amlbot';
 import { timeAgo, shortAddress, shortHash } from '@/lib/format';
 import { CheckForm } from './check-form';
 
-export default async function CheckPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  const { q } = await searchParams;
+export default async function CheckPage() {
   const { data } = await db()
     .from('manual_checks')
     .select('id, query, kind, result, created_at')
@@ -18,7 +18,9 @@ export default async function CheckPage({ searchParams }: { searchParams: Promis
         <h1>Check</h1>
       </header>
       <div className="content stack">
-        <CheckForm deepAvailable={deepCheckConfigured()} initialQuery={q?.trim().slice(0, 80) || undefined} />
+        <Suspense fallback={null}>
+          <CheckForm deepAvailable={deepCheckConfigured()} />
+        </Suspense>
 
         {data && data.length > 0 ? (
           <section className="panel">

@@ -1,5 +1,5 @@
 import { LEVEL_LABEL } from '@/lib/format';
-import type { Reason, RiskLevel } from '@/lib/types';
+import type { RiskLevel } from '@/lib/types';
 
 const COLOR: Record<RiskLevel, string> = {
   low: 'var(--green-fg)',
@@ -48,24 +48,6 @@ export function ScoreRing({ score, level, size = 132 }: { score: number; level: 
         <b className="tnum">{score}</b>
         <span className="label">Score</span>
       </div>
-    </div>
-  );
-}
-
-const ICON: Record<Reason['tone'], string> = { ok: '✓', warn: '!', bad: '✕', info: 'i' };
-
-export function ReasonList({ reasons }: { reasons: Reason[] }) {
-  const order: Record<Reason['tone'], number> = { bad: 0, warn: 1, info: 2, ok: 3 };
-  const sorted = [...reasons].sort((a, b) => order[a.tone] - order[b.tone]);
-  return (
-    <div className="reasons">
-      {sorted.map((r) => (
-        <div className="reason" key={r.code + r.label}>
-          <span className={`ic ${r.tone}`}>{ICON[r.tone]}</span>
-          <span>{r.label}</span>
-          {r.weight > 0 ? <span className="w">+{r.weight}</span> : null}
-        </div>
-      ))}
     </div>
   );
 }

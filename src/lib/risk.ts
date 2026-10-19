@@ -29,8 +29,8 @@ export function scoreAddress(
   let score = 0;
   let floor = 0;
 
-  const add = (code: string, label: string, weight: number, tone: Reason['tone']) => {
-    reasons.push({ code, label, weight, tone });
+  const add = (code: string, label: string, weight: number, tone: Reason['tone'], extra?: Pick<Reason, 'address' | 'via'>) => {
+    reasons.push({ code, label, weight, tone, ...extra });
     score += weight;
   };
 
@@ -85,15 +85,15 @@ export function scoreAddress(
     const h2Flag = h2.find((h) => h.reason === 'flagged');
 
     if (h1Severe) {
-      add('trace_hop1', `Sender received funds directly from ${reasonText[h1Severe.reason]} (${short(h1Severe.address)})`, 60, 'bad');
+      add('trace_hop1', `Sender received funds directly from ${reasonText[h1Severe.reason]} (${short(h1Severe.address)})`, 60, 'bad', { address: h1Severe.address });
       floor = Math.max(floor, 75);
     } else if (h1Flag) {
-      add('trace_hop1_flag', `Sender received funds directly from ${reasonText.flagged} (${short(h1Flag.address)})`, 35, 'bad');
+      add('trace_hop1_flag', `Sender received funds directly from ${reasonText.flagged} (${short(h1Flag.address)})`, 35, 'bad', { address: h1Flag.address });
     }
     if (h2Severe) {
-      add('trace_hop2', `Funds trace back 2 steps to ${reasonText[h2Severe.reason]} (${short(h2Severe.address)})`, 30, 'warn');
+      add('trace_hop2', `Funds trace back 2 steps to ${reasonText[h2Severe.reason]} (${short(h2Severe.address)})`, 30, 'warn', { address: h2Severe.address, via: h2Severe.via ?? undefined });
     } else if (h2Flag) {
-      add('trace_hop2_flag', `Funds trace back 2 steps to ${reasonText.flagged} (${short(h2Flag.address)})`, 15, 'warn');
+      add('trace_hop2_flag', `Funds trace back 2 steps to ${reasonText.flagged} (${short(h2Flag.address)})`, 15, 'warn', { address: h2Flag.address, via: h2Flag.via ?? undefined });
     }
     if (!s.trace.hits.length && s.trace.scanned > 0) {
       reasons.push({
@@ -106,7 +106,7 @@ export function scoreAddress(
   }
 
   if (s.poisoningOf) {
-    add('poisoning', `Looks like ${short(s.poisoningOf)} but is a different address (possible address poisoning)`, 45, 'bad');
+    add('poisoning', `Looks like ${short(s.poisoningOf)} but is a different address (possible address poisoning)`, 45, 'bad', { address: s.poisoningOf });
   }
 
   if (!s.activated || s.createdAt === null) {

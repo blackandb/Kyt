@@ -5,6 +5,8 @@ export type Reason = {
   label: string;
   weight: number;
   tone: 'ok' | 'warn' | 'bad' | 'info';
+  address?: string;
+  via?: string;
 };
 
 export type AddressSignals = {

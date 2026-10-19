@@ -1,9 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { CopyButton } from '@/components/ui';
-import { KytStatus, ReasonList, RiskBadge } from '@/components/risk';
+import { KytStatus, RiskBadge } from '@/components/risk';
+import { AddressActions, CopyText, ReasonList } from '@/components/reason-list';
 import { IconExternal, IconSearch } from '@/components/icons';
 import { formatAmount, shortHash } from '@/lib/format';
 import type { AddressReport, CheckResult } from '@/lib/check';
@@ -117,6 +118,64 @@ function StepRow({ row }: { row: Row }) {
   );
 }
 
+const HIT_LABEL = { tether_blacklist: 'Frozen by Tether', sanctions: 'Sanctioned', flagged: 'Flagged by you' } as const;
+
+function reportText(r: AddressReport): string {
+  const s = r.signals;
+  const lines = [
+    `KYT check — ${r.address}`,
+    `Result: ${r.risk.level.toUpperCase()} · score ${r.risk.score} · KYT ${r.risk.passed ? 'passed' : 'failed'}`,
+    `Checked: ${new Date(r.checkedAt || Date.now()).toLocaleString('en-GB')}`,
+    '',
+    'Reasons:',
+    ...r.risk.reasons.map((x) => `- ${x.label}${x.weight ? ` (+${x.weight})` : ''}${x.address ? `\n  ${x.address}` : ''}`)
+  ];
+  if (s.trace?.hits.length) {
+    lines.push('', 'Fund trace findings:');
+    s.trace.hits.forEach((h) =>
+      lines.push(`- Step ${h.hop} · ${HIT_LABEL[h.reason]}: ${h.address}${h.via ? `\n  via ${h.via}` : ''}`)
+    );
+  }
+  lines.push('', `https://tronscan.org/#/address/${r.address}`);
+  return lines.join('\n');
+}
+
+function TraceFindings({ r }: { r: AddressReport }) {
+  const hits = r.signals.trace?.hits ?? [];
+  const [open, setOpen] = useState<number | null>(hits.length === 1 ? 0 : null);
+  if (!hits.length) return null;
+  return (
+    <div className="findings">
+      <div className="label" style={{ marginBottom: 8 }}>
+        Fund trace findings · {hits.length}
+      </div>
+      {hits.map((h, i) => (
+        <div key={`${h.hop}-${h.address}`} className={`finding${open === i ? ' open' : ''}`}>
+          <button type="button" className="finding-head" aria-expanded={open === i} onClick={() => setOpen(open === i ? null : i)}>
+            <span className={`badge ${h.reason === 'flagged' ? 'badge-high' : 'badge-severe'}`}>{HIT_LABEL[h.reason]}</span>
+            <span className="mono finding-addr">
+              {h.address.slice(0, 8)}…{h.address.slice(-6)}
+            </span>
+            <span className="faint finding-hop">{h.hop === 1 ? 'Direct source' : 'Step 2'}</span>
+            <span className="chev" aria-hidden />
+          </button>
+          {open === i ? (
+            <div className="reason-more">
+              <p>
+                {h.hop === 1
+                  ? 'The sender received funds directly from this address.'
+                  : 'This address sent funds to one of the sender’s sources, which then sent to the sender.'}
+                {h.amount && Number(h.amount) > 0 ? ` Recent volume: ${formatAmount(Number(h.amount).toFixed(2), 2)} ${h.token}.` : ''}
+              </p>
+              <AddressActions address={h.address} via={h.via ?? undefined} />
+            </div>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function AddressResult({ r, title }: { r: AddressReport; title: string }) {
   const s = r.signals;
   const ageDays = s.createdAt ? Math.floor((Date.now() - s.createdAt) / 86_400_000) : null;
@@ -150,7 +209,12 @@ function AddressResult({ r, title }: { r: AddressReport; title: string }) {
         <AnimatedRing score={r.risk.score} level={r.risk.level} />
       </div>
       <div style={{ borderTop: '1px solid var(--hair)', padding: '6px 20px 10px' }}>
+        <div className="row spread" style={{ padding: '8px 0 2px' }}>
+          <span className="label">Why this score · tap for details</span>
+          <CopyText value={reportText(r)} label="Copy report" />
+        </div>
         <ReasonList reasons={r.risk.reasons} />
+        <TraceFindings r={r} />
       </div>
     </div>
   );
@@ -200,9 +264,11 @@ function ResultView({ result }: { result: CheckResult }) {
   );
 }
 
-export function CheckForm({ deepAvailable, initialQuery }: { deepAvailable: boolean; initialQuery?: string }) {
+export function CheckForm({ deepAvailable }: { deepAvailable: boolean }) {
   const router = useRouter();
-  const [query, setQuery] = useState(initialQuery ?? '');
+  const params = useSearchParams();
+  const paramQ = params.get('q');
+  const [query, setQuery] = useState('');
   const [deep, setDeep] = useState(false);
   const [phase, setPhase] = useState<Phase>('idle');
   const [rows, setRows] = useState<Row[]>([]);
@@ -217,7 +283,7 @@ export function CheckForm({ deepAvailable, initialQuery }: { deepAvailable: bool
   const seq = useRef(0);
   const started = useRef(0);
   const abort = useRef<AbortController | null>(null);
-  const autorun = useRef(false);
+  const lastParam = useRef<string | null>(null);
 
   const kind = detect(query);
 
@@ -358,11 +424,18 @@ export function CheckForm({ deepAvailable, initialQuery }: { deepAvailable: bool
   );
 
   useEffect(() => {
-    if (autorun.current || !initialQuery) return;
-    autorun.current = true;
+    const q = (paramQ ?? '').trim().slice(0, 80);
+    if (!q) {
+      lastParam.current = null;
+      return;
+    }
+    if (lastParam.current === q) return;
+    lastParam.current = q;
     window.history.replaceState(null, '', '/check');
-    run(initialQuery);
-  }, [initialQuery, run]);
+    setQuery(q);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    run(q);
+  }, [paramQ, run]);
 
   useEffect(
     () => () => {

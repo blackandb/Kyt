@@ -682,3 +682,37 @@ img, svg, canvas, table { max-width: 100%; }
 .bubble-ai .chat-card, .bubble-ai code { direction: ltr; unicode-bidi: isolate; }
 .access-input { text-align: center; letter-spacing: .08em; height: 44px; }
 .access-input::placeholder { letter-spacing: .14em; text-transform: uppercase; font-family: var(--mono); font-size: 12px; }
+
+/* ---------- Expandable reasons ---------- */
+
+.reason-item { border-bottom: 1px solid var(--hair); }
+.reason-item:last-child { border-bottom: 0; }
+.reason-item .reason { width: 100%; border: 0; border-bottom: 0; background: none; text-align: left; cursor: pointer; color: inherit; font: inherit; font-size: 13.5px; -webkit-tap-highlight-color: transparent; }
+.reason-item .reason:disabled { cursor: default; }
+.reason-item .reason:not(:disabled):hover .reason-text { color: #fff; }
+.reason-text { flex: 1; min-width: 0; user-select: text; -webkit-user-select: text; }
+.reason .w { margin-left: 8px; }
+.chev { flex: none; width: 8px; height: 8px; margin: 6px 2px 0 10px; border-right: 1.5px solid var(--text-3); border-bottom: 1.5px solid var(--text-3); transform: rotate(45deg); transition: transform .3s var(--ease); }
+.open > .reason .chev, .finding.open .chev { transform: rotate(-135deg); margin-top: 9px; }
+.reason-more { padding: 0 0 14px 28px; animation: fadeIn .3s var(--ease-out) both; }
+.reason-more p { margin: 0 0 10px; color: var(--text-2); font-size: 13px; line-height: 1.55; }
+
+.addr-box { display: grid; gap: 10px; padding: 12px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--hair); }
+.addr-full { font-size: 13px; word-break: break-all; user-select: all; -webkit-user-select: all; color: var(--text); }
+.addr-via { font-size: 12px; color: var(--text-3); word-break: break-all; }
+.addr-via .mono { user-select: all; -webkit-user-select: all; }
+
+.findings { padding: 14px 0 6px; border-top: 1px solid var(--hair); margin-top: 4px; }
+.finding { border-bottom: 1px solid var(--hair); }
+.finding:last-child { border-bottom: 0; }
+.finding-head { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 0; background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.finding-addr { font-size: 12.5px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.finding-hop { font-size: 12px; white-space: nowrap; }
+.finding .reason-more { padding-left: 0; }
+
+.step-detail, .tx-field .v, .mono.break { user-select: text; -webkit-user-select: text; }
+
+@media (max-width: 560px) {
+  .reason-more { padding-left: 0; }
+  .finding-hop { display: none; }
+}
