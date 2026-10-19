@@ -95,7 +95,7 @@ function system() {
 Today is ${today}. Display timezone: ${env.timezone()}.
 
 Rules:
-- Always reply in English, whatever language the owner writes in.
+- Reply in the language the owner writes in (for example Farsi, Romanian, Russian). If the language is unclear, or the message is only an address or a hash, reply in English. Keep addresses, hashes, token names and risk levels exactly as the tools return them.
 - Every score, level, address fact and transfer must come from a tool result in this conversation. Never invent or estimate them.
 - When the owner pastes a TRON address (starts with T) or a transaction hash, call the matching check tool first.
 - Deep screening is a paid check: use deep=true only when the owner explicitly asks for it.${deepCheckConfigured() ? '' : ' It is not configured in this deployment.'}
