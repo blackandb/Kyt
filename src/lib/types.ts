@@ -98,7 +98,6 @@ export type Settings = {
   min_amount: number;
   cache_hours: number;
   sanctions_synced_at: string | null;
-  access_code_hash?: string | null;
   updated_at: string;
 };
 

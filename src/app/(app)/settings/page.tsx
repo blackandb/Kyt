@@ -1,10 +1,20 @@
 import { getSettings } from '@/lib/signals';
 import { deepCheckConfigured } from '@/lib/amlbot';
 import { env } from '@/lib/env';
-import { AccessCodeForm, SettingsForm, TestEmailButton } from './settings-forms';
+import { NewAccessCodeForm, SettingsForm, TestEmailButton } from './settings-forms';
+import { db } from '@/lib/supabase/admin';
+import { currentCodeId } from '@/lib/auth';
+import { revokeAccessCode } from '@/app/actions';
+import { SubmitButton } from '@/components/ui';
+import { timeAgo } from '@/lib/format';
 
 export default async function SettingsPage() {
-  const settings = await getSettings();
+  const [settings, current, codesRes] = await Promise.all([
+    getSettings(),
+    currentCodeId(),
+    db().from('access_codes').select('id, label, created_at, last_used_at').is('revoked_at', null).order('created_at')
+  ]);
+  const codes = (codesRes.data || []) as { id: string; label: string; created_at: string; last_used_at: string | null }[];
   const status = [
     { label: 'AI assistant (Claude)', ok: env.aiConfigured(), hint: `Model ${env.anthropicModel()}` },
     { label: 'TronGrid API key', ok: !!env.trongridKey(), hint: 'Higher rate limits for monitoring' },
@@ -63,10 +73,44 @@ export default async function SettingsPage() {
         <section className="panel">
           <div className="panel-head">
             <h2>Private access</h2>
-            <span className="label">Access code</span>
+            <span className="label">{codes.length} active code{codes.length === 1 ? '' : 's'}</span>
           </div>
-          <div className="panel-pad">
-            <AccessCodeForm />
+          <div className="panel-pad stack">
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Label</th>
+                    <th>Created</th>
+                    <th>Last used</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {codes.map((c) => (
+                    <tr key={c.id}>
+                      <td>
+                        {c.label}
+                        {c.id === current ? <span className="badge badge-low" style={{ marginLeft: 8 }}>This device</span> : null}
+                      </td>
+                      <td className="faint">{timeAgo(c.created_at)}</td>
+                      <td className="faint">{timeAgo(c.last_used_at)}</td>
+                      <td style={{ textAlign: 'right' }}>
+                        {c.id === current ? null : (
+                          <form action={revokeAccessCode}>
+                            <input type="hidden" name="id" value={c.id} />
+                            <SubmitButton className="btn btn-danger btn-sm" pendingText="…">
+                              Revoke
+                            </SubmitButton>
+                          </form>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <NewAccessCodeForm />
           </div>
         </section>
       </div>

@@ -1,7 +1,8 @@
 'use client';
 
 import { useActionState, useState } from 'react';
-import { changeAccessCode, saveSettings, sendTestEmail } from '@/app/actions';
+import { createAccessCode, saveSettings, sendTestEmail } from '@/app/actions';
+import { CopyText } from '@/components/reason-list';
 import { Notice, SubmitButton } from '@/components/ui';
 import type { Settings } from '@/lib/types';
 
@@ -79,30 +80,29 @@ export function TestEmailButton() {
   );
 }
 
-export function AccessCodeForm() {
-  const [state, action] = useActionState(changeAccessCode, null);
+export function NewAccessCodeForm() {
+  const [state, action] = useActionState(createAccessCode, null);
   return (
     <form action={action} className="stack">
-      <div className="form-grid">
-        <label className="field">
-          <span className="label">Current code</span>
-          <input className="input" type="password" name="current" autoComplete="current-password" required />
+      <div className="row row-wrap" style={{ alignItems: 'flex-end' }}>
+        <label className="field" style={{ flex: 1, minWidth: 200 }}>
+          <span className="label">Label</span>
+          <input className="input" name="label" placeholder="e.g. Phone, Laptop, Partner" maxLength={40} />
         </label>
-        <label className="field">
-          <span className="label">New code</span>
-          <input className="input" type="password" name="next" autoComplete="new-password" minLength={8} required />
-        </label>
-        <label className="field">
-          <span className="label">Repeat new code</span>
-          <input className="input" type="password" name="confirm" autoComplete="new-password" minLength={8} required />
-        </label>
-      </div>
-      <div className="row row-wrap">
-        <SubmitButton className="btn btn-ghost" pendingText="Saving">
-          Change access code
+        <SubmitButton className="btn btn-ghost" pendingText="Creating">
+          Create access code
         </SubmitButton>
-        <Notice state={state} />
       </div>
+      {state?.code ? (
+        <div className="addr-box">
+          <span className="label">New code · shown once</span>
+          <div className="addr-full mono" style={{ fontSize: 18, letterSpacing: '.06em' }}>{state.code}</div>
+          <div className="row row-wrap">
+            <CopyText value={state.code} label="Copy code" />
+          </div>
+        </div>
+      ) : null}
+      <Notice state={state} />
     </form>
   );
 }

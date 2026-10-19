@@ -91,4 +91,14 @@ alter table public.transfers enable row level security;
 alter table public.address_checks enable row level security;
 alter table public.flagged_addresses enable row level security;
 alter table public.manual_checks enable row level security;
+create table if not exists public.access_codes (
+  id uuid primary key default gen_random_uuid(),
+  label text not null,
+  code_hash text not null,
+  created_at timestamptz not null default now(),
+  last_used_at timestamptz,
+  revoked_at timestamptz
+);
+
 alter table public.settings enable row level security;
+alter table public.access_codes enable row level security;

@@ -3,8 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { requireOwner } from '@/lib/auth';
-import { codeVersion, hashCode, verifyCode } from '@/lib/passcode';
+import { currentCodeId, requireOwner } from '@/lib/auth';
+import { codeVersion, generateCode, hashCode, normalizeCode, verifyCode } from '@/lib/passcode';
 import { SESSION_COOKIE, SESSION_MAX_AGE, createSession } from '@/lib/session';
 import { db } from '@/lib/supabase/admin';
 import { env } from '@/lib/env';
@@ -24,21 +24,27 @@ export type ActionState = { ok?: boolean; message?: string } | null;
 const MAX_ATTEMPTS = 5;
 const LOCK_MINUTES = 15;
 
+const sessionCookie = (value: string) =>
+  ({ name: SESSION_COOKIE, value, httpOnly: true, secure: true, sameSite: 'lax' as const, path: '/', maxAge: SESSION_MAX_AGE });
+
 export async function unlock(_: ActionState, form: FormData): Promise<ActionState> {
   const code = String(form.get('code') || '');
-  if (!code) return { ok: false, message: 'Enter your access code.' };
+  if (!normalizeCode(code)) return { ok: false, message: 'Enter your access code.' };
 
-  const { data } = await db().from('settings').select('access_code_hash, access_failed, access_locked_until').eq('id', 1).single();
-  const row = data as { access_code_hash: string | null; access_failed: number; access_locked_until: string | null } | null;
-  if (!row?.access_code_hash) return { ok: false, message: 'Access is not configured yet.' };
-
-  if (row.access_locked_until && new Date(row.access_locked_until).getTime() > Date.now()) {
-    const mins = Math.ceil((new Date(row.access_locked_until).getTime() - Date.now()) / 60_000);
+  const { data: lock } = await db().from('settings').select('access_failed, access_locked_until').eq('id', 1).single();
+  const l = lock as { access_failed: number; access_locked_until: string | null } | null;
+  if (l?.access_locked_until && new Date(l.access_locked_until).getTime() > Date.now()) {
+    const mins = Math.ceil((new Date(l.access_locked_until).getTime() - Date.now()) / 60_000);
     return { ok: false, message: `Too many attempts. Try again in ${mins} min.` };
   }
 
-  if (!verifyCode(code, row.access_code_hash)) {
-    const failed = (row.access_failed || 0) + 1;
+  const { data: codes, error } = await db().from('access_codes').select('id, code_hash').is('revoked_at', null);
+  if (error) return { ok: false, message: 'Access codes could not be loaded. Try again.' };
+  if (!codes?.length) return { ok: false, message: 'No active access code. Ask for a new one to be issued.' };
+  const match = (codes as { id: string; code_hash: string }[]).find((c) => verifyCode(code, c.code_hash));
+
+  if (!match) {
+    const failed = (l?.access_failed || 0) + 1;
     await db()
       .from('settings')
       .update({
@@ -47,17 +53,17 @@ export async function unlock(_: ActionState, form: FormData): Promise<ActionStat
       })
       .eq('id', 1);
     await new Promise((r) => setTimeout(r, 700));
-    return { ok: false, message: failed >= MAX_ATTEMPTS ? `Too many attempts. Locked for ${LOCK_MINUTES} min.` : 'Incorrect access code.' };
+    return {
+      ok: false,
+      message: failed >= MAX_ATTEMPTS ? `Too many attempts. Locked for ${LOCK_MINUTES} min.` : `Incorrect access code. ${MAX_ATTEMPTS - failed} attempts left.`
+    };
   }
 
-  await db().from('settings').update({ access_failed: 0, access_locked_until: null }).eq('id', 1);
-  (await cookies()).set(SESSION_COOKIE, await createSession(codeVersion(row.access_code_hash)), {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: SESSION_MAX_AGE
-  });
+  await Promise.all([
+    db().from('settings').update({ access_failed: 0, access_locked_until: null }).eq('id', 1),
+    db().from('access_codes').update({ last_used_at: new Date().toISOString() }).eq('id', match.id)
+  ]);
+  (await cookies()).set(sessionCookie(await createSession(codeVersion(match.id, match.code_hash))));
   redirect('/check');
 }
 
@@ -66,29 +72,25 @@ export async function signOut() {
   redirect('/login');
 }
 
-export async function changeAccessCode(_: ActionState, form: FormData): Promise<ActionState> {
+export type NewCodeState = { ok?: boolean; message?: string; code?: string } | null;
+
+export async function createAccessCode(_: NewCodeState, form: FormData): Promise<NewCodeState> {
   await requireOwner();
-  const current = String(form.get('current') || '');
-  const next = String(form.get('next') || '');
-  const confirm = String(form.get('confirm') || '');
-  if (next.length < 8) return { ok: false, message: 'The new code needs at least 8 characters.' };
-  if (next !== confirm) return { ok: false, message: 'The new codes do not match.' };
-
-  const { data } = await db().from('settings').select('access_code_hash').eq('id', 1).single();
-  const stored = (data as { access_code_hash: string | null } | null)?.access_code_hash;
-  if (!verifyCode(current, stored)) return { ok: false, message: 'Current code is incorrect.' };
-
-  const hash = hashCode(next);
-  const { error } = await db().from('settings').update({ access_code_hash: hash, access_failed: 0, access_locked_until: null }).eq('id', 1);
+  const label = String(form.get('label') || '').trim().slice(0, 40) || 'Access code';
+  const code = generateCode();
+  const { error } = await db().from('access_codes').insert({ label, code_hash: hashCode(code) });
   if (error) return { ok: false, message: error.message };
-  (await cookies()).set(SESSION_COOKIE, await createSession(codeVersion(hash)), {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: SESSION_MAX_AGE
-  });
-  return { ok: true, message: 'Access code changed. Other devices are signed out.' };
+  revalidatePath('/settings');
+  return { ok: true, message: `${label} created. Save it now — it will not be shown again.`, code };
+}
+
+export async function revokeAccessCode(form: FormData) {
+  await requireOwner();
+  const id = String(form.get('id') || '');
+  const current = await currentCodeId();
+  if (!id || id === current) return;
+  await db().from('access_codes').update({ revoked_at: new Date().toISOString() }).eq('id', id);
+  revalidatePath('/settings');
 }
 
 /* ---------- Wallets ---------- */
