@@ -4,7 +4,7 @@ import { fetchTransactionTransfers, isTronAddress, isTxHash, toUnits } from '@/l
 import { scoreAddress } from '@/lib/risk';
 import { collectSignals, getContext, getSettings } from '@/lib/signals';
 import { deepCheckConfigured } from '@/lib/amlbot';
-import type { AddressSignals, DeepResult, RiskResult } from '@/lib/types';
+import type { AddressSignals, DeepResult, RiskResult, StepEmitter } from '@/lib/types';
 
 export type AddressReport = {
   kind: 'address';
@@ -33,19 +33,28 @@ export type TxReport = {
 
 export type CheckResult = AddressReport | TxReport | { kind: 'error'; message: string };
 
-export async function runCheck(query: string, deep: boolean): Promise<CheckResult> {
+export async function runCheck(query: string, deep: boolean, emit?: StepEmitter): Promise<CheckResult> {
   const q = query.trim();
   const settings = await getSettings();
   const ctx = await getContext();
   const useDeep = deep && deepCheckConfigured();
 
-  const reportFor = async (address: string, amount?: number): Promise<AddressReport> => {
+  const reportFor = async (address: string, amount?: number, group?: string): Promise<AddressReport> => {
     const { signals, deep: d } = await collectSignals(address, ctx, {
       cacheHours: settings.cache_hours,
       deep: useDeep,
-      forceFresh: true
+      forceFresh: true,
+      emit,
+      group
     });
     const risk = scoreAddress(signals, { amount, largeAmount: Number(settings.deep_check_threshold), deep: d });
+    emit?.({
+      id: 'score',
+      label: 'Risk score',
+      state: risk.level === 'low' ? 'ok' : risk.level === 'medium' ? 'warn' : 'bad',
+      detail: `${risk.score} · ${risk.level[0].toUpperCase() + risk.level.slice(1)} · KYT ${risk.passed ? 'passed' : 'failed'}`,
+      group
+    });
     return { kind: 'address', address, risk, signals, deep: d, checkedAt: new Date().toISOString() };
   };
 
@@ -54,7 +63,14 @@ export async function runCheck(query: string, deep: boolean): Promise<CheckResul
   if (isTronAddress(q)) {
     result = await reportFor(q);
   } else if (isTxHash(q)) {
+    emit?.({ id: 'tx', label: 'Transaction lookup', state: 'run', detail: 'Fetching events from TRON' });
     const events = await fetchTransactionTransfers(q).catch(() => []);
+    emit?.({
+      id: 'tx',
+      label: 'Transaction lookup',
+      state: events.length ? 'ok' : 'bad',
+      detail: events.length ? `${events.length} token transfer${events.length === 1 ? '' : 's'} found` : 'No token transfers found'
+    });
     if (events.length === 0) {
       result = { kind: 'error', message: 'No token transfers found for this transaction on TRON.' };
     } else {
@@ -69,7 +85,7 @@ export async function runCheck(query: string, deep: boolean): Promise<CheckResul
           to: e.to,
           timestamp: e.timestamp,
           toOwnWallet: ctx.own.has(e.to),
-          sender: await reportFor(e.from, Number(amount))
+          sender: await reportFor(e.from, Number(amount), `Sender ${e.from.slice(0, 6)}…${e.from.slice(-4)}`)
         });
       }
       result = { kind: 'transaction', hash: q.replace(/^0x/, '').toLowerCase(), transfers, checkedAt: new Date().toISOString() };

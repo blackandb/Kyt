@@ -8,7 +8,7 @@ export default function NotFound() {
         <h1 className="headline" style={{ fontSize: 34 }}>
           <span className="g1">Not found.</span>
         </h1>
-        <Link className="btn btn-ghost" href="/">Back to transfers</Link>
+        <Link className="btn btn-ghost" href="/check">Back to KYT Monitor</Link>
       </div>
     </main>
   );

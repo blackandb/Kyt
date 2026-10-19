@@ -59,7 +59,7 @@ export function CopyButton({ value, label = 'Copy' }: { value: string; label?: s
 
 export function NavLink({ href, icon, children }: { href: string; icon: ReactNode; children: ReactNode }) {
   const path = usePathname();
-  const active = href === '/' ? path === '/' || path.startsWith('/transfers') : path.startsWith(href);
+  const active = path === href || path.startsWith(`${href}/`);
   return (
     <Link href={href} className={`nav-item${active ? ' active' : ''}`}>
       {icon}

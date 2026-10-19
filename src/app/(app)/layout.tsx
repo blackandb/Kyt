@@ -6,9 +6,9 @@ import { IconChat, IconFeed, IconFlag, IconLogout, IconSearch, IconSettings, Ico
 export const dynamic = 'force-dynamic';
 
 const NAV = [
-  { href: '/', label: 'Transfers', icon: <IconFeed /> },
-  { href: '/assistant', label: 'Assistant', icon: <IconChat /> },
   { href: '/check', label: 'Check', icon: <IconSearch /> },
+  { href: '/transfers', label: 'Transfers', icon: <IconFeed /> },
+  { href: '/assistant', label: 'Assistant', icon: <IconChat /> },
   { href: '/wallets', label: 'Wallets', icon: <IconWallet /> },
   { href: '/flags', label: 'Flags', icon: <IconFlag /> },
   { href: '/settings', label: 'Settings', icon: <IconSettings /> }

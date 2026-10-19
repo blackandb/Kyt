@@ -107,3 +107,15 @@ export type FlaggedAddress = {
   severity: number;
   created_at: string;
 };
+
+export type StepState = 'run' | 'ok' | 'warn' | 'bad' | 'info';
+
+export type CheckStep = {
+  id: string;
+  label: string;
+  state: StepState;
+  detail?: string;
+  group?: string;
+};
+
+export type StepEmitter = (step: CheckStep) => void;

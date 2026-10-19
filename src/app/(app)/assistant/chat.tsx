@@ -8,12 +8,12 @@ import type { CheckResult, AddressReport } from '@/lib/check';
 
 type Msg = { role: 'user' | 'assistant'; content: string; checks?: CheckResult[]; error?: boolean };
 
-const STORE = 'kyt-chat-v1';
+const STORE = 'kyt-chat-v2';
 const SUGGESTIONS = [
-  'Ce transferuri riscante am primit în ultimele 7 zile?',
-  'Rezumatul încasărilor din ultimele 24 de ore',
-  'Verifică adresa TEPKBVgweaxWWcKV7d9qVSqFdztiQfGEQp',
-  'Care este statusul portofelelor mele?'
+  'Any risky transfers in the last 7 days?',
+  'Summary of funds received in the last 24 hours',
+  'Check address TEPKBVgweaxWWcKV7d9qVSqFdztiQfGEQp',
+  'What is the status of my wallets?'
 ];
 
 function inline(text: string): ReactNode[] {

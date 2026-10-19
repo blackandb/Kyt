@@ -62,7 +62,7 @@ export async function addWallet(_: ActionState, form: FormData): Promise<ActionS
   if (error) return { ok: false, message: error.message.includes('duplicate') ? 'This wallet is already monitored.' : error.message };
 
   revalidatePath('/wallets');
-  revalidatePath('/');
+  revalidatePath('/transfers');
   return { ok: true, message: `${label} added. History from the last ${backfillDays} days will appear on the next sync.` };
 }
 
@@ -80,14 +80,14 @@ export async function renameWallet(form: FormData) {
   const label = String(form.get('label') || '').trim();
   if (label) await db().from('wallets').update({ label }).eq('id', id);
   revalidatePath('/wallets');
-  revalidatePath('/');
+  revalidatePath('/transfers');
 }
 
 export async function deleteWallet(form: FormData) {
   await requireOwner();
   await db().from('wallets').delete().eq('id', String(form.get('id')));
   revalidatePath('/wallets');
-  revalidatePath('/');
+  revalidatePath('/transfers');
 }
 
 /* ---------- Sync ---------- */
@@ -95,7 +95,7 @@ export async function deleteWallet(form: FormData) {
 export async function syncNow(_: ActionState): Promise<ActionState> {
   await requireOwner();
   const s = await syncAll();
-  revalidatePath('/');
+  revalidatePath('/transfers');
   revalidatePath('/wallets');
   const base = s.inserted === 0 ? 'No new transfers.' : `${s.inserted} new transfer${s.inserted === 1 ? '' : 's'}.`;
   return { ok: s.errors.length === 0, message: s.errors.length ? `${base} ${s.errors[0]}` : base };
@@ -174,7 +174,7 @@ export async function recheckTransfer(form: FormData) {
   const id = String(form.get('id'));
   await rescoreTransfer(id, form.get('deep') === 'true');
   revalidatePath(`/transfers/${id}`);
-  revalidatePath('/');
+  revalidatePath('/transfers');
 }
 
 /* ---------- Manual check ---------- */

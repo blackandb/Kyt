@@ -9,7 +9,7 @@ export async function GET(request: Request) {
     const supabase = await authClient();
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error && (data.user?.email || '').toLowerCase() === env.ownerEmail()) {
-      return NextResponse.redirect(new URL('/', url.origin));
+      return NextResponse.redirect(new URL('/check', url.origin));
     }
     await supabase.auth.signOut();
   }

@@ -41,7 +41,7 @@ export async function middleware(request: NextRequest) {
 
   if (path === '/login' && allowed) {
     const url = request.nextUrl.clone();
-    url.pathname = '/';
+    url.pathname = '/check';
     url.search = '';
     return NextResponse.redirect(url);
   }

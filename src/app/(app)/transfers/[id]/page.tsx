@@ -32,7 +32,7 @@ export default async function TransferPage({ params }: { params: Promise<{ id: s
     <>
       <header className="topbar">
         <div className="row">
-          <Link className="btn btn-ghost btn-sm btn-icon" href="/" aria-label="Back">
+          <Link className="btn btn-ghost btn-sm btn-icon" href="/transfers" aria-label="Back">
             <IconArrowLeft />
           </Link>
           <h1>Transfer report</h1>
