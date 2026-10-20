@@ -90,7 +90,7 @@ const TOOLS = [
 
 function system() {
   const today = new Date().toISOString().slice(0, 10);
-  return `You are the assistant inside KYT Monitor, a private dashboard where one owner monitors their own TRON wallets and screens incoming USDT/USDC transfers.
+  return `You are the assistant inside KYT Monitor, a private dashboard where each access code is a separate user who monitors their own TRON wallets and screens incoming USDT/USDC transfers.
 
 Today is ${today}. Display timezone: ${env.timezone()}.
 
@@ -111,13 +111,13 @@ function clampLimit(v: unknown, def = 20) {
   return Number.isFinite(n) ? Math.min(50, Math.max(1, Math.floor(n))) : def;
 }
 
-async function execTool(name: string, input: Record<string, unknown>, checks: CheckResult[]): Promise<unknown> {
+async function execTool(owner: string, name: string, input: Record<string, unknown>, checks: CheckResult[]): Promise<unknown> {
   const client = db();
   switch (name) {
     case 'check_address':
     case 'check_transaction': {
       const q = String(input.address ?? input.hash ?? '');
-      const result = await runCheck(q, input.deep === true);
+      const result = await runCheck(owner, q, input.deep === true);
       checks.push(result);
       if (result.kind === 'address') {
         return {
@@ -163,6 +163,7 @@ async function execTool(name: string, input: Record<string, unknown>, checks: Ch
       let q = client
         .from('transfers')
         .select('id, tx_hash, token, amount, from_address, to_address, block_ts, risk_score, risk_level, kyt_passed, wallets(label)')
+        .eq('owner_id', owner)
         .order('block_ts', { ascending: false })
         .limit(clampLimit(input.limit));
       if (typeof input.level === 'string' && LEVELS.includes(input.level as RiskLevel)) q = q.eq('risk_level', input.level);
@@ -174,7 +175,7 @@ async function execTool(name: string, input: Record<string, unknown>, checks: Ch
         q = q.gte('block_ts', new Date(Date.now() - input.since_hours * 3_600_000).toISOString());
       }
       if (typeof input.wallet_label === 'string' && input.wallet_label) {
-        const { data: w } = await client.from('wallets').select('id').ilike('label', input.wallet_label.trim());
+        const { data: w } = await client.from('wallets').select('id').eq('owner_id', owner).ilike('label', input.wallet_label.trim());
         q = q.in('wallet_id', (w || []).map((x) => x.id));
       }
       const { data, error } = await q;
@@ -183,7 +184,7 @@ async function execTool(name: string, input: Record<string, unknown>, checks: Ch
     }
 
     case 'get_transfer': {
-      let q = client.from('transfers').select('*, wallets(label, address)');
+      let q = client.from('transfers').select('*, wallets(label, address)').eq('owner_id', owner);
       if (typeof input.id === 'string' && /^[0-9a-f-]{36}$/i.test(input.id)) q = q.eq('id', input.id);
       else if (typeof input.tx_hash === 'string') q = q.eq('tx_hash', input.tx_hash.replace(/^0x/, '').toLowerCase());
       else return { error: 'Provide id or tx_hash' };
@@ -198,6 +199,7 @@ async function execTool(name: string, input: Record<string, unknown>, checks: Ch
       const { data } = await client
         .from('transfers')
         .select('token, amount, risk_level, kyt_passed, wallets(label)')
+        .eq('owner_id', owner)
         .gte('block_ts', new Date(Date.now() - hours * 3_600_000).toISOString())
         .limit(5000);
       const rows = (data || []) as unknown as { token: string; amount: string; risk_level: RiskLevel; kyt_passed: boolean; wallets: { label: string } | null }[];
@@ -218,13 +220,13 @@ async function execTool(name: string, input: Record<string, unknown>, checks: Ch
     }
 
     case 'list_wallets': {
-      const { data } = await client.from('wallets').select('label, address, network, active, last_synced_at, last_error').order('created_at');
+      const { data } = await client.from('wallets').select('label, address, network, active, last_synced_at, last_error').eq('owner_id', owner).order('created_at');
       return { wallets: data };
     }
 
     case 'list_flags': {
       const [{ data }, { count }] = await Promise.all([
-        client.from('flagged_addresses').select('address, label, severity, created_at').eq('source', 'manual').limit(100),
+        client.from('user_flags').select('address, label, severity, created_at').eq('owner_id', owner).limit(100),
         client.from('flagged_addresses').select('address', { count: 'exact', head: true }).eq('source', 'sanctions')
       ]);
       return { owner_flags: data, sanctioned_addresses_loaded: count ?? 0 };
@@ -250,7 +252,7 @@ async function callClaude(messages: Message[]) {
   return (await res.json()) as { content: Block[]; stop_reason: string };
 }
 
-export async function chat(history: ChatTurn[]): Promise<ChatResponse> {
+export async function chat(owner: string, history: ChatTurn[]): Promise<ChatResponse> {
   const messages: Message[] = history
     .filter((m) => m.content.trim())
     .slice(-20)
@@ -278,7 +280,7 @@ export async function chat(history: ChatTurn[]): Promise<ChatResponse> {
     for (const u of uses) {
       tools.push(u.name);
       try {
-        const out = await execTool(u.name, u.input || {}, checks);
+        const out = await execTool(owner, u.name, u.input || {}, checks);
         results.push({ type: 'tool_result', tool_use_id: u.id, content: JSON.stringify(out).slice(0, 20000) });
       } catch (e) {
         results.push({ type: 'tool_result', tool_use_id: u.id, content: e instanceof Error ? e.message : 'Tool failed', is_error: true });

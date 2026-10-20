@@ -1,4 +1,5 @@
 import { db } from '@/lib/supabase/admin';
+import { requireOwner } from '@/lib/auth';
 import { timeAgo } from '@/lib/format';
 import { unflag } from '@/app/actions';
 import { CopyButton, SubmitButton } from '@/components/ui';
@@ -6,8 +7,9 @@ import { FlagForm, SanctionsButton } from './flag-forms';
 import type { FlaggedAddress } from '@/lib/types';
 
 export default async function FlagsPage() {
+  const owner = await requireOwner();
   const [manual, sanctionsCount, settings] = await Promise.all([
-    db().from('flagged_addresses').select('*').eq('source', 'manual').order('created_at', { ascending: false }),
+    db().from('user_flags').select('*').eq('owner_id', owner).order('created_at', { ascending: false }),
     db().from('flagged_addresses').select('address', { count: 'exact', head: true }).eq('source', 'sanctions'),
     db().from('settings').select('sanctions_synced_at').eq('id', 1).single()
   ]);

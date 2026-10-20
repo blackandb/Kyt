@@ -14,22 +14,34 @@ type CachedRow = {
   checked_at: string;
 };
 
-export async function getSettings(): Promise<Settings> {
-  const { data } = await db().from('settings').select('*').eq('id', 1).single();
-  return data as Settings;
+export async function getSettings(owner: string): Promise<Settings> {
+  const { data } = await db().from('user_settings').select('*').eq('owner_id', owner).maybeSingle();
+  if (data) return data as Settings;
+  const { data: created } = await db().from('user_settings').upsert({ owner_id: owner }, { onConflict: 'owner_id' }).select('*').single();
+  return created as Settings;
 }
 
-export async function getContext() {
-  const [wallets, flags, senders] = await Promise.all([
-    db().from('wallets').select('address'),
-    db().from('flagged_addresses').select('*'),
-    db().from('transfers').select('from_address').eq('risk_level', 'low').order('block_ts', { ascending: false }).limit(500)
+export async function getContext(owner: string) {
+  const [wallets, sanctions, flags, senders] = await Promise.all([
+    db().from('wallets').select('address').eq('owner_id', owner),
+    db().from('flagged_addresses').select('*').eq('source', 'sanctions'),
+    db().from('user_flags').select('*').eq('owner_id', owner),
+    db()
+      .from('transfers')
+      .select('from_address')
+      .eq('owner_id', owner)
+      .eq('risk_level', 'low')
+      .order('block_ts', { ascending: false })
+      .limit(500)
   ]);
   const own = new Set((wallets.data || []).map((w) => w.address as string));
   const flagged = new Map<string, FlaggedAddress>();
-  (flags.data || []).forEach((f) => flagged.set(f.address, f as FlaggedAddress));
+  (sanctions.data || []).forEach((f) => flagged.set(f.address, f as FlaggedAddress));
+  (flags.data || []).forEach((f) =>
+    flagged.set(f.address, { address: f.address, network: 'TRON', source: 'manual', label: f.label, severity: f.severity, created_at: f.created_at })
+  );
   const trusted = new Set<string>([...own, ...(senders.data || []).map((s) => s.from_address as string)]);
-  return { own, flagged, trusted };
+  return { owner, own, flagged, trusted };
 }
 
 export type Ctx = Awaited<ReturnType<typeof getContext>>;
@@ -91,7 +103,7 @@ export async function collectSignals(
     base.poisoningOf ? `Mimics ${short(base.poisoningOf)}` : `Compared against ${ctx.trusted.size} trusted addresses`
   );
 
-  const { data: cachedRaw } = await db().from('address_checks').select('*').eq('address', address).maybeSingle();
+  const { data: cachedRaw } = await db().from('address_checks').select('*').eq('owner_id', ctx.owner).eq('address', address).maybeSingle();
   const cached = cachedRaw as CachedRow | null;
   const fresh =
     !opts.forceFresh && cached && Date.now() - new Date(cached.checked_at).getTime() < opts.cacheHours * 3_600_000;
@@ -155,6 +167,7 @@ export async function collectSignals(
     await db()
       .from('address_checks')
       .upsert({
+        owner_id: ctx.owner,
         address,
         network: 'TRON',
         signals: live,

@@ -1,14 +1,17 @@
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { db } from '@/lib/supabase/admin';
+import { requireOwner } from '@/lib/auth';
 import { deepCheckConfigured } from '@/lib/amlbot';
 import { timeAgo, shortAddress, shortHash } from '@/lib/format';
 import { CheckForm } from './check-form';
 
 export default async function CheckPage() {
+  const owner = await requireOwner();
   const { data } = await db()
     .from('manual_checks')
     .select('id, query, kind, result, created_at')
+    .eq('owner_id', owner)
     .order('created_at', { ascending: false })
     .limit(10);
 

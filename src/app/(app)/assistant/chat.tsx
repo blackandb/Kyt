@@ -8,7 +8,6 @@ import type { CheckResult, AddressReport } from '@/lib/check';
 
 type Msg = { role: 'user' | 'assistant'; content: string; checks?: CheckResult[]; error?: boolean };
 
-const STORE = 'kyt-chat-v2';
 const SUGGESTIONS = [
   'Any risky transfers in the last 7 days?',
   'Summary of funds received in the last 24 hours',
@@ -107,7 +106,8 @@ function CheckCards({ checks }: { checks: CheckResult[] }) {
   );
 }
 
-export function Chat({ configured }: { configured: boolean }) {
+export function Chat({ configured, userKey }: { configured: boolean; userKey: string }) {
+  const STORE = `kyt-chat-v3-${userKey}`;
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
@@ -121,7 +121,7 @@ export function Chat({ configured }: { configured: boolean }) {
     } catch {
       /* storage unavailable */
     }
-  }, []);
+  }, [STORE]);
 
   useEffect(() => {
     try {

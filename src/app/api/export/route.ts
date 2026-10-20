@@ -11,12 +11,13 @@ function cell(v: unknown) {
 }
 
 export async function GET() {
-  await requireOwner();
+  const owner = await requireOwner();
   const rows: Transfer[] = [];
   for (let from = 0; ; from += 1000) {
     const { data } = await db()
       .from('transfers')
       .select('*, wallets(label, address, network)')
+      .eq('owner_id', owner)
       .order('block_ts', { ascending: false })
       .range(from, from + 999);
     rows.push(...((data || []) as Transfer[]));

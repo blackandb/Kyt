@@ -90,14 +90,14 @@ export type Transfer = {
 };
 
 export type Settings = {
-  id: number;
+  owner_id: string;
   alert_mode: 'all' | 'risk' | 'off';
   alert_min_level: RiskLevel;
   deep_check_enabled: boolean;
   deep_check_threshold: number;
   min_amount: number;
   cache_hours: number;
-  sanctions_synced_at: string | null;
+  alert_email: string | null;
   updated_at: string;
 };
 

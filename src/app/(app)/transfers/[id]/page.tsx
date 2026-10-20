@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/supabase/admin';
+import { requireOwner } from '@/lib/auth';
 import { env } from '@/lib/env';
 import { explorer } from '@/lib/tron';
 import { formatAmount, formatTime, timeAgo } from '@/lib/format';
@@ -15,15 +16,21 @@ import type { Transfer } from '@/lib/types';
 export default async function TransferPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
-  const { data } = await db().from('transfers').select('*, wallets(label, address, network)').eq('id', id).maybeSingle();
+  const owner = await requireOwner();
+  const { data } = await db().from('transfers').select('*, wallets(label, address, network)').eq('id', id).eq('owner_id', owner).maybeSingle();
   if (!data) notFound();
   const t = data as Transfer;
   const tz = env.timezone();
 
-  const { data: flag } = await db().from('flagged_addresses').select('source').eq('address', t.from_address).maybeSingle();
+  const [{ data: sanctionFlag }, { data: userFlag }] = await Promise.all([
+    db().from('flagged_addresses').select('source').eq('source', 'sanctions').eq('address', t.from_address).maybeSingle(),
+    db().from('user_flags').select('address').eq('owner_id', owner).eq('address', t.from_address).maybeSingle()
+  ]);
+  const flag = sanctionFlag ? { source: 'sanctions' } : userFlag ? { source: 'manual' } : null;
   const { count: senderCount } = await db()
     .from('transfers')
     .select('id', { count: 'exact', head: true })
+    .eq('owner_id', owner)
     .eq('from_address', t.from_address);
 
   const s = t.signals || {};

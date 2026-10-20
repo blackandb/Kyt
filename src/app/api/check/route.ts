@@ -1,4 +1,4 @@
-import { isAuthed } from '@/lib/auth';
+import { currentCodeId } from '@/lib/auth';
 import { runCheck } from '@/lib/check';
 import { isTronAddress, isTxHash } from '@/lib/tron';
 import type { CheckStep } from '@/lib/types';
@@ -7,7 +7,8 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
-  if (!(await isAuthed())) {
+  const owner = await currentCodeId();
+  if (!owner) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -36,7 +37,7 @@ export async function POST(request: Request) {
       send({ t: 'start', kind, query });
 
       try {
-        const result = await runCheck(query, deep, (step: CheckStep) => send({ t: 'step', ...step }));
+        const result = await runCheck(owner, query, deep, (step: CheckStep) => send({ t: 'step', ...step }));
         send({ t: 'result', result });
       } catch (e) {
         send({ t: 'error', message: e instanceof Error ? e.message : 'Check failed' });

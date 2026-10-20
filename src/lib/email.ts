@@ -95,14 +95,15 @@ ${
   return { subject, html, text };
 }
 
-export async function sendEmail(subject: string, html: string, text: string): Promise<{ ok: boolean; error?: string }> {
+export async function sendEmail(to: string | null | undefined, subject: string, html: string, text: string): Promise<{ ok: boolean; error?: string }> {
   const key = env.resendKey();
   if (!key) return { ok: false, error: 'RESEND_API_KEY is not set' };
-  if (!env.ownerEmail()) return { ok: false, error: 'OWNER_EMAIL is not set — alerts have no recipient' };
+  const recipient = (to || '').trim();
+  if (!recipient) return { ok: false, error: 'No alert email set in Settings' };
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ from: env.alertFrom(), to: [env.ownerEmail()], subject, html, text }),
+    body: JSON.stringify({ from: env.alertFrom(), to: [recipient], subject, html, text }),
     cache: 'no-store'
   });
   if (!res.ok) return { ok: false, error: `Resend ${res.status}: ${(await res.text()).slice(0, 200)}` };

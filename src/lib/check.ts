@@ -33,10 +33,10 @@ export type TxReport = {
 
 export type CheckResult = AddressReport | TxReport | { kind: 'error'; message: string };
 
-export async function runCheck(query: string, deep: boolean, emit?: StepEmitter): Promise<CheckResult> {
+export async function runCheck(owner: string, query: string, deep: boolean, emit?: StepEmitter): Promise<CheckResult> {
   const q = query.trim();
-  const settings = await getSettings();
-  const ctx = await getContext();
+  const settings = await getSettings(owner);
+  const ctx = await getContext(owner);
   const useDeep = deep && deepCheckConfigured();
 
   const reportFor = async (address: string, amount?: number, group?: string): Promise<AddressReport> => {
@@ -95,7 +95,7 @@ export async function runCheck(query: string, deep: boolean, emit?: StepEmitter)
   }
 
   if (result.kind !== 'error') {
-    await db().from('manual_checks').insert({ query: q, kind: result.kind, result });
+    await db().from('manual_checks').insert({ owner_id: owner, query: q, kind: result.kind, result });
   }
   return result;
 }

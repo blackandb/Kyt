@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState, useState } from 'react';
-import { createAccessCode, saveSettings, sendTestEmail } from '@/app/actions';
+import { clearHistory, createAccessCode, saveSettings, sendTestEmail } from '@/app/actions';
 import { CopyText } from '@/components/reason-list';
 import { Notice, SubmitButton } from '@/components/ui';
 import type { Settings } from '@/lib/types';
@@ -12,6 +12,11 @@ export function SettingsForm({ settings, deepAvailable }: { settings: Settings; 
 
   return (
     <form action={action} className="stack" style={{ gap: 20 }}>
+      <label className="field">
+        <span className="label">Alert email</span>
+        <input className="input" type="email" name="alert_email" defaultValue={settings.alert_email ?? ''} placeholder="you@example.com" autoComplete="email" />
+        <span className="field-hint">Alerts for this access code only. Leave empty to receive no emails.</span>
+      </label>
       <div className="form-grid">
         <label className="field">
           <span className="label">Email alerts</span>
@@ -102,6 +107,32 @@ export function NewAccessCodeForm() {
           </div>
         </div>
       ) : null}
+      <Notice state={state} />
+    </form>
+  );
+}
+
+export function ClearHistoryButton() {
+  const [state, action] = useActionState(clearHistory, null);
+  const [armed, setArmed] = useState(false);
+  return (
+    <form action={action} className="stack" style={{ gap: 10 }}>
+      <div className="row row-wrap">
+        {armed ? (
+          <>
+            <SubmitButton className="btn btn-danger btn-sm" pendingText="Clearing">
+              Confirm — delete history
+            </SubmitButton>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setArmed(false)}>
+              Cancel
+            </button>
+          </>
+        ) : (
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setArmed(true)}>
+            Clear history
+          </button>
+        )}
+      </div>
       <Notice state={state} />
     </form>
   );

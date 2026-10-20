@@ -1,4 +1,5 @@
 import { db } from '@/lib/supabase/admin';
+import { requireOwner } from '@/lib/auth';
 import { timeAgo } from '@/lib/format';
 import { deleteWallet, renameWallet, toggleWallet } from '@/app/actions';
 import { CopyButton, SubmitButton } from '@/components/ui';
@@ -7,9 +8,10 @@ import { AddWalletForm } from './add-wallet-form';
 import type { Wallet } from '@/lib/types';
 
 export default async function WalletsPage() {
-  const { data } = await db().from('wallets').select('*').order('created_at');
+  const owner = await requireOwner();
+  const { data } = await db().from('wallets').select('*').eq('owner_id', owner).order('created_at');
   const wallets = (data || []) as Wallet[];
-  const { data: counts } = await db().from('transfers').select('wallet_id');
+  const { data: counts } = await db().from('transfers').select('wallet_id').eq('owner_id', owner);
   const perWallet = new Map<string, number>();
   (counts || []).forEach((c) => perWallet.set(c.wallet_id, (perWallet.get(c.wallet_id) || 0) + 1));
 

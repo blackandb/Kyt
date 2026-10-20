@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { db } from '@/lib/supabase/admin';
+import { requireOwner } from '@/lib/auth';
 import { env } from '@/lib/env';
 import { formatAmount, timeAgo } from '@/lib/format';
 import { TransferCard } from '@/components/transfer-card';
@@ -15,6 +16,7 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
   const sp = await searchParams;
   const level = LEVELS.includes(sp.level as RiskLevel) ? (sp.level as RiskLevel) : null;
   const page = Math.max(1, Number(sp.page || 1));
+  const owner = await requireOwner();
   const client = db();
   const tz = env.timezone();
 
@@ -25,17 +27,18 @@ export default async function FeedPage({ searchParams }: { searchParams: Promise
   let list = client
     .from('transfers')
     .select('*, wallets(label, address, network)', { count: 'exact' })
+    .eq('owner_id', owner)
     .order('block_ts', { ascending: false })
     .range((page - 1) * PAGE, page * PAGE - 1);
   if (level) list = list.eq('risk_level', level);
 
   const [listRes, day, week, flagged, wallets, ...levelCounts] = await Promise.all([
     list,
-    client.from('transfers').select('amount, token').gte('block_ts', dayAgo),
-    client.from('transfers').select('id', { count: 'exact', head: true }).gte('block_ts', weekAgo),
-    client.from('transfers').select('id', { count: 'exact', head: true }).gte('block_ts', monthAgo).in('risk_level', ['high', 'severe']),
-    client.from('wallets').select('active, last_synced_at, last_error'),
-    ...LEVELS.map((l) => client.from('transfers').select('id', { count: 'exact', head: true }).eq('risk_level', l))
+    client.from('transfers').select('amount, token').eq('owner_id', owner).gte('block_ts', dayAgo),
+    client.from('transfers').select('id', { count: 'exact', head: true }).eq('owner_id', owner).gte('block_ts', weekAgo),
+    client.from('transfers').select('id', { count: 'exact', head: true }).eq('owner_id', owner).gte('block_ts', monthAgo).in('risk_level', ['high', 'severe']),
+    client.from('wallets').select('active, last_synced_at, last_error').eq('owner_id', owner),
+    ...LEVELS.map((l) => client.from('transfers').select('id', { count: 'exact', head: true }).eq('owner_id', owner).eq('risk_level', l))
   ]);
 
   const transfers = (listRes.data || []) as Transfer[];

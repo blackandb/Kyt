@@ -10,18 +10,25 @@ const MAX_PER_RUN = 120;
 
 export type SyncSummary = { wallets: number; found: number; inserted: number; alerts: number; errors: string[] };
 
-export async function syncAll(): Promise<SyncSummary> {
+export async function syncAll(onlyOwner?: string): Promise<SyncSummary> {
   const client = db();
-  const settings = await getSettings();
-  const ctx = await getContext();
-  const { data: walletRows } = await client.from('wallets').select('*').eq('active', true).order('created_at');
-  const wallets = (walletRows || []) as Wallet[];
+  let wq = client.from('wallets').select('*').eq('active', true).order('created_at');
+  if (onlyOwner) wq = wq.eq('owner_id', onlyOwner);
+  const { data: walletRows } = await wq;
+  const wallets = (walletRows || []) as (Wallet & { owner_id: string })[];
   const summary: SyncSummary = { wallets: wallets.length, found: 0, inserted: 0, alerts: 0, errors: [] };
   const memo = new Map<string, Awaited<ReturnType<typeof collectSignals>>>();
+  const owners = new Map<string, { settings: Awaited<ReturnType<typeof getSettings>>; ctx: Awaited<ReturnType<typeof getContext>> }>();
   let budget = MAX_PER_RUN;
 
   for (const wallet of wallets) {
     if (budget <= 0) break;
+    let scope = owners.get(wallet.owner_id);
+    if (!scope) {
+      scope = { settings: await getSettings(wallet.owner_id), ctx: await getContext(wallet.owner_id) };
+      owners.set(wallet.owner_id, scope);
+    }
+    const { settings, ctx } = scope;
     try {
       const items = await fetchIncomingTrc20(wallet.address, Number(wallet.last_seen_ts) + 1);
       summary.found += items.length;
@@ -38,11 +45,11 @@ export async function syncAll(): Promise<SyncSummary> {
         if (amountNum < Number(settings.min_amount)) continue;
 
         const eventKey = `${t.transaction_id}:${t.from}:${t.to}:${t.value}`;
-        const { data: exists } = await client.from('transfers').select('id').eq('event_key', eventKey).maybeSingle();
+        const { data: exists } = await client.from('transfers').select('id').eq('wallet_id', wallet.id).eq('event_key', eventKey).maybeSingle();
         if (exists) continue;
 
         const wantDeep = settings.deep_check_enabled && amountNum >= Number(settings.deep_check_threshold);
-        const memoKey = `${t.from}:${wantDeep}`;
+        const memoKey = `${wallet.owner_id}:${t.from}:${wantDeep}`;
         let collected = memo.get(memoKey);
         if (!collected) {
           collected = await collectSignals(t.from, ctx, { cacheHours: settings.cache_hours, deep: wantDeep });
@@ -59,6 +66,7 @@ export async function syncAll(): Promise<SyncSummary> {
         const { data: inserted, error } = await client
           .from('transfers')
           .insert({
+            owner_id: wallet.owner_id,
             wallet_id: wallet.id,
             network: 'TRON',
             event_key: eventKey,
@@ -107,11 +115,11 @@ export async function syncAll(): Promise<SyncSummary> {
             time: blockIso,
             reasons: risk.reasons.filter((r) => r.tone === 'bad' || r.tone === 'warn').map((r) => r.label)
           });
-          const sent = await sendEmail(mail.subject, mail.html, mail.text);
+          const sent = await sendEmail(settings.alert_email, mail.subject, mail.html, mail.text);
           if (sent.ok) {
             summary.alerts++;
             await client.from('transfers').update({ alerted: true }).eq('id', inserted.id);
-          } else if (sent.error) {
+          } else if (sent.error && settings.alert_email) {
             summary.errors.push(`Email: ${sent.error}`);
           }
         }

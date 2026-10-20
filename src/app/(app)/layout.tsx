@@ -1,4 +1,5 @@
-import { requireOwner } from '@/lib/auth';
+import { currentUser } from '@/lib/auth';
+import { redirect } from 'next/navigation';
 import { signOut } from '@/app/actions';
 import { NavLink } from '@/components/ui';
 import { IconChat, IconFeed, IconFlag, IconLogout, IconSearch, IconSettings, IconShield, IconWallet } from '@/components/icons';
@@ -15,7 +16,8 @@ const NAV = [
 ];
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  await requireOwner();
+  const user = await currentUser();
+  if (!user) redirect('/login');
   return (
     <div className="shell">
       <aside className="sidebar">
@@ -34,7 +36,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </NavLink>
         ))}
         <div className="sidebar-foot">
-          <div className="owner">Private access</div>
+          <div className="owner">{user.label}</div>
           <form action={signOut}>
             <button className="btn btn-ghost btn-sm" type="submit" style={{ width: '100%' }}>
               <IconLogout /> Sign out

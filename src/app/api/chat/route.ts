@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { isAuthed } from '@/lib/auth';
+import { currentCodeId } from '@/lib/auth';
 import { env } from '@/lib/env';
 import { chat, type ChatTurn } from '@/lib/ai';
 
@@ -7,7 +7,8 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
-  if (!(await isAuthed())) {
+  const owner = await currentCodeId();
+  if (!owner) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   if (!env.aiConfigured()) {
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    return NextResponse.json(await chat(history));
+    return NextResponse.json(await chat(owner, history));
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Assistant failed' }, { status: 502 });
   }
