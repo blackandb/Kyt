@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const ts = require('typescript');
 const cache = new Map();
+const overrides = new Map();
 function load(file) {
   file = path.resolve(file);
   if (cache.has(file)) return cache.get(file).exports;
@@ -11,7 +12,7 @@ function load(file) {
   const js = ts.transpileModule(fs.readFileSync(file,'utf8'), { compilerOptions: {
     target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS
   }}).outputText;
-  const req = name => name === 'server-only' ? {} : name.startsWith('@/') ? load('src/' + name.slice(2) + '.ts') : require(name);
+  const req = name => overrides.has(name) ? overrides.get(name) : name === 'server-only' ? {} : name.startsWith('@/') ? load('src/' + name.slice(2) + '.ts') : require(name);
   new Function('require','module','exports',js)(req,module,module.exports);
   return module.exports;
 }
@@ -110,4 +111,57 @@ test('Pagination rejects untrusted origins and repeated fingerprints',async()=>{
       await assert.rejects(readHistoryPage(a));assert.equal(a.phase,'trc20');
     }
   }finally{global.fetch=original;}
+});
+
+test('Audit route enforces owner isolation, checkpoint rollback and resume',async()=>{
+  let user='11111111-1111-4111-8111-111111111111';
+  const id='22222222-2222-4222-8222-222222222222';
+  const initial=state();initial.phase='trc20';initial.revision=0;
+  const rows=[{id,owner_id:user,result:structuredClone(initial)}];
+  const database={from(table){
+    let op='select',values=null;const filters=[];
+    const builder={
+      select(){return builder;},eq(key,value){filters.push([key,value]);return builder;},
+      update(v){op='update';values=v;return builder;},maybeSingle(){builder.single=true;return builder;},
+      then(resolve,reject){
+        try {
+          if(table!=='manual_checks') return Promise.resolve({data:table==='settings'?null:[],error:null}).then(resolve,reject);
+          const matches=rows.filter(r=>filters.every(([key,value])=>key==='result->>revision' ?
+            String(r.result.revision)===String(value) : r[key]===value));
+          if(op==='update')for(const r of matches)Object.assign(r,structuredClone(values));
+          const data=builder.single ? matches[0]||null : matches.map(r=>structuredClone(r));
+          return Promise.resolve({data:structuredClone(data),error:null}).then(resolve,reject);
+        }catch(e){return Promise.reject(e).then(resolve,reject);}
+      }
+    };return builder;
+  }};
+  overrides.set('@/lib/auth',{currentCodeId:async()=>user});
+  overrides.set('@/lib/supabase/admin',{db:()=>database});
+  let fail=true;
+  overrides.set('@/lib/audit',{
+    readBlacklist:async()=> 'clear',readBalances:async()=>({usdt:'1',trx:'2'}),
+    readHistoryPage:async a=>{
+      model.recordTransfer(a,{from:peer,to:main,raw:'1000000',token:'USDT',decimals:6,hash:'one',at:1});
+      if(fail)throw new Error('Provider disconnected mid-page');
+      a.phase='screen';
+    }
+  });
+  const {POST}=load('src/app/api/audit/route.ts');
+  const request=body=>new Request('https://test.invalid/api/audit',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+  try {
+    user=null;assert.equal((await POST(request({id}))).status,401);
+    user='33333333-3333-4333-8333-333333333333';assert.equal((await POST(request({id}))).status,404);
+    user=rows[0].owner_id;
+    const failed=await (await POST(request({id}))).json();
+    assert.match(failed.audit.lastError,/disconnected/);assert.equal(failed.audit.peers.length,0);
+    assert.equal(failed.audit.phase,'trc20');assert.equal(model.auditVerdict(failed.audit),'INCOMPLETE');
+    fail=false;
+    const resumed=await (await POST(request({id}))).json();assert.equal(resumed.audit.peers.length,1);
+    assert.equal(resumed.audit.peers[0].incomingUsdt,'1000000');
+    const screened=await (await POST(request({id}))).json();assert.equal(screened.audit.peers[0].status,'clear');
+    const finished=await (await POST(request({id}))).json();assert.equal(finished.audit.phase,'done');
+    assert.equal(model.auditVerdict(finished.audit),'OK');
+    rows[0].result.phase='screen';rows[0].result.leaseUntil=Date.now()+5000;
+    assert.equal((await POST(request({id}))).status,409);
+  }finally{overrides.clear();}
 });
