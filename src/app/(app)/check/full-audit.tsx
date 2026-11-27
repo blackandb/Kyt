@@ -105,9 +105,9 @@ export function FullAuditForm() {
         <div className="row row-wrap"><span className="label">Report for</span>
           <a className="mono break" href={explorer(a.address)} target="_blank" rel="noreferrer">{a.address}</a>
         </div>
-        <div className="notice" aria-live="polite">
-          <strong>{verdict === 'OK' ? 'OK within the checked scope' : verdict === 'BLOCKED' ? 'BLOCKED / FLAGGED — do not approve' :
-            verdict === 'NOT_OK' ? 'NOT OK — flagged counterparties found' : 'INCOMPLETE — no approval'}</strong>
+        <div key={`${job?.id}:${verdict}`} className={`notice audit-status audit-status-${verdict === 'OK' ? 'ok' : verdict === 'INCOMPLETE' ? 'pending' : 'bad'}`} aria-live="polite">
+          <div className="audit-status-heading"><span className="audit-status-dot" aria-hidden="true" /><strong>{verdict === 'OK' ? 'OK within the checked scope' : verdict === 'BLOCKED' ? 'BLOCKED / FLAGGED — do not approve' :
+            verdict === 'NOT_OK' ? 'NOT OK — flagged counterparties found' : 'INCOMPLETE — no approval'}</strong></div>
           <div style={{ marginTop: 8 }}>
             {a.phase === 'trc20' ? 'Reading all token transfer pages…' : a.phase === 'native' ? 'Reading TRX / TRC10 transaction pages…' :
               a.phase === 'screen' ? 'Checking every counterparty against the USDT contract…' : 'Scan finished.'}
