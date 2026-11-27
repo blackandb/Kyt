@@ -23,6 +23,7 @@ export function FullAuditForm() {
   const [onlyHits, setOnlyHits] = useState(true);
   const [page, setPage] = useState(0);
   const generation = useRef(0);
+  const addressInput = useRef<HTMLInputElement>(null);
   const controller = useRef<AbortController | null>(null);
   async function post(body: unknown, signal?: AbortSignal): Promise<ResponseData> {
     const response = await fetch('/api/audit', { method: 'POST', headers: { 'content-type': 'application/json' },
@@ -33,10 +34,11 @@ export function FullAuditForm() {
   }
   useEffect(() => {
     let active = true;
+    const restoreGeneration = generation.current;
     let id: string | null = null;
     try { id = auditId || sessionStorage.getItem('kyt-full-audit'); } catch { /* storage disabled */ }
     if (id) post({ id, action: 'status' }).then(data => {
-      if (active) { setJob(data); setAddress(data.audit.address); }
+      if (active && restoreGeneration === generation.current) { setJob(data); setAddress(data.audit.address); }
     }).catch(() => { /* A saved ID is only a convenience, never an authentication credential. */ });
     return () => { active = false; generation.current++; controller.current?.abort(); };
   }, [auditId]);
@@ -45,6 +47,7 @@ export function FullAuditForm() {
     const gen = ++generation.current;
     const ac = new AbortController(); controller.current = ac;
     setRunning(true); setError(''); setPage(0);
+    if (!resume) { setJob(null); setSearch(''); setOnlyHits(true); }
     try {
       let current = resume && job ? job : await post({ address, months }, ac.signal);
       if (gen !== generation.current) return;
@@ -62,6 +65,15 @@ export function FullAuditForm() {
     } finally { if (gen === generation.current) setRunning(false); }
   }
   function stop() { generation.current++; controller.current?.abort(); setRunning(false); }
+  function reset() {
+    stop();
+    setJob(null); setAddress(''); setError(''); setSearch(''); setOnlyHits(true); setPage(0);
+    try { sessionStorage.removeItem('kyt-full-audit'); } catch { /* storage disabled */ }
+    const url = new URL(window.location.href);
+    url.searchParams.delete('audit');
+    window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+    addressInput.current?.focus();
+  }
   const a = job?.audit;
   const hits = a?.peers.filter(problem) || [];
   const checked = a?.peers.filter(p => p.status !== null).length || 0;
@@ -86,7 +98,7 @@ export function FullAuditForm() {
         Progress is saved after each batch, so large histories can be resumed.</p>
       <form className="stack" onSubmit={e => { e.preventDefault(); void run(false); }}>
         <label className="field"><span className="label">TRON address</span>
-          <input className="input mono" value={address} onChange={e => setAddress(e.target.value)} required
+          <input ref={addressInput} className="input mono" value={address} onChange={e => setAddress(e.target.value)} required
             placeholder="T…" spellCheck={false} autoComplete="off" disabled={running} maxLength={34} />
         </label>
         <div className="row row-wrap">
@@ -97,6 +109,7 @@ export function FullAuditForm() {
           </label>
           <button className="btn btn-primary" type="submit" disabled={running}>{running ? 'Scanning…' : 'Run full audit'}</button>
           {running ? <button className="btn btn-ghost" type="button" onClick={stop}>Pause</button> : null}
+          <button className="btn btn-ghost" type="button" onClick={reset} disabled={!address && !job && !error && !running}>New check / Reset</button>
           {!running && a && a.phase !== 'done' ? <button className="btn" type="button" onClick={() => void run(true)}>Resume saved audit</button> : null}
         </div>
       </form>
