@@ -1,3 +1,5 @@
+import { FullAuditForm } from './full-audit';
+import { auditVerdict, type FullAudit } from '@/lib/audit-model';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { db } from '@/lib/supabase/admin';
@@ -21,6 +23,8 @@ export default async function CheckPage() {
         <h1>Check</h1>
       </header>
       <div className="content stack">
+        <Suspense fallback={null}><FullAuditForm /></Suspense>
+        <div className="label">Quick sampled screening / transaction lookup</div>
         <Suspense fallback={null}>
           <CheckForm deepAvailable={deepCheckConfigured()} />
         </Suspense>
@@ -44,16 +48,17 @@ export default async function CheckPage() {
                   {data.map((c) => {
                     const r = c.result as { risk?: { score: number; level: string }; transfers?: { sender: { risk: { score: number; level: string } } }[] };
                     const risk = r.risk ?? r.transfers?.[0]?.sender.risk;
+                    const audit = (c.result as { kind?: string }).kind === 'full-audit' ? c.result as FullAudit : null;
                     return (
                       <tr key={c.id}>
                         <td className="mono" style={{ fontSize: 12.5 }}>
-                          <Link className="recheck" href={`/check?q=${encodeURIComponent(c.query)}`} title="Run this check again">
+                          <Link className="recheck" href={audit ? `/check?audit=${c.id}` : `/check?q=${encodeURIComponent(c.query)}`} title="Run this check again">
                             {c.kind === 'address' ? shortAddress(c.query, 8, 6) : shortHash(c.query)}
                           </Link>
                         </td>
                         <td className="faint">{c.kind}</td>
                         <td>
-                          {risk ? (
+                          {audit ? (<span className={`badge badge-${auditVerdict(audit) === 'OK' ? 'low' : 'high'}`}>{auditVerdict(audit)} · {audit.phase}</span>) : risk ? (
                             <span className={`badge badge-${risk.level}`}>
                               <span className="dot" />
                               {risk.level} · {risk.score}

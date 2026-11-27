@@ -200,7 +200,7 @@ function AddressResult({ r, title }: { r: AddressReport; title: string }) {
             <span>Tether: {s.tetherBlacklisted === null ? 'unknown' : s.tetherBlacklisted ? 'frozen' : 'clear'}</span>
             {s.trace ? (
               <span>
-                Fund trace: {s.trace.hits.length ? `${s.trace.hits.length} tainted source${s.trace.hits.length === 1 ? '' : 's'}` : 'clean'} ·{' '}
+                Fund trace: {s.trace.hits.length ? `${s.trace.hits.length} tainted source${s.trace.hits.length === 1 ? '' : 's'}` : 'no hit in sample'} ·{' '}
                 {s.trace.scanned} checked
               </span>
             ) : null}
@@ -500,7 +500,7 @@ export function CheckForm({ deepAvailable }: { deepAvailable: boolean }) {
                   <span className="muted" style={{ fontSize: 13 }}>Deep screening (paid check)</span>
                 </label>
               ) : (
-                <span className="faint" style={{ fontSize: 12.5 }}>Sanctions · Tether blacklist · your flags · age · activity · 2-step fund trace</span>
+                <span className="faint" style={{ fontSize: 12.5 }}>Sanctions · Tether blacklist · your flags · age · activity · sampled 2-step fund trace</span>
               )}
               <button type="submit" className="btn btn-primary" disabled={running || kind === 'empty' || kind === 'invalid'}>
                 {running ? (
