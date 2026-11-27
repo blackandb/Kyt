@@ -72,3 +72,39 @@ src/app/api/export/           CSV export
 | 90–100 | Severe | Failed |
 
 Tether blacklist or sanctions match → 100. Flagged by you → at least the flag severity.
+
+## Complete direct-counterparty audit
+
+The primary form on /check scans the entire available confirmed TRC20 transfer
+history in both directions, then all native transaction pages for TRX/TRC10
+transfers. Select the last six months if required. Every discovered direct
+counterparty is checked with isBlackListed(address) on the official USDT
+contract TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t, plus the configured sanctions list
+and the current user's manual flags.
+
+The job checkpoints into the existing owner-scoped manual_checks JSON column;
+no additional database migration is needed once the repository's existing
+per-code-users migration has been applied. Each request advances one page or
+a bounded batch of counterparties, avoiding one long serverless request.
+Pause, resume, reload, CSV and JSON exports are supported. Concurrent advances
+use a revision check and expiring lease to avoid duplicate aggregation.
+
+A target freeze/flag produces BLOCKED; counterparty findings produce NOT_OK.
+An unfinished scan, unknown blacklist status or missing balances produces
+INCOMPLETE. OK is limited to the checks stated in the report; it is not a
+global AML clearance. Zero-value contact is shown separately from positive
+payments. Aggregates use integer raw units; up to 20 transfer examples are
+retained per counterparty. Contract-internal transfers and indirect tracing
+are outside this direct audit; the separate quick form retains sampled
+two-hop screening.
+
+TRONGRID_API_KEY is strongly recommended on Vercel for reliable and faster
+screening. Without a key requests are paced more conservatively; provider
+limits can still require a resume. Keys remain server-side. A very large
+history exceeding 20,000 pages or the 8 MB checkpoint budget remains
+explicitly incomplete, never silently approved. Sanctions-list freshness
+and per-address status check timestamps are displayed.
+
+Verification: GitHub Actions runs TypeScript checks, regression tests for
+fail-closed verdicts, outgoing exposure, exact amounts and pagination, then
+a production build. Tests use mocked providers and no production secrets.

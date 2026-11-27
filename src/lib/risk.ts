@@ -45,7 +45,7 @@ export function scoreAddress(
 
   if (s.isOwnWallet) {
     reasons.push({ code: 'own', label: 'Transfer from one of your own wallets', weight: 0, tone: 'ok' });
-    return { score: 0, level: 'low', passed: true, reasons };
+
   }
 
   if (s.tetherBlacklisted) {
@@ -54,7 +54,8 @@ export function scoreAddress(
   } else if (s.tetherBlacklisted === false) {
     reasons.push({ code: 'tether_clear', label: 'Not on the Tether blacklist', weight: 0, tone: 'ok' });
   } else {
-    reasons.push({ code: 'tether_unknown', label: 'Tether blacklist status unavailable', weight: 0, tone: 'info' });
+    reasons.push({ code: 'tether_unknown', label: 'Tether blacklist status unavailable — approval withheld', weight: 0, tone: 'warn' });
+    floor = Math.max(floor, 70);
   }
 
   if (s.sanctioned) {
