@@ -1,4 +1,5 @@
 'use client';
+import { useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { auditVerdict, units, type FullAudit, type AuditPeer } from '@/lib/audit-model';
 
@@ -11,6 +12,8 @@ function download(name: string, text: string, mime: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 export function FullAuditForm() {
+  const params = useSearchParams();
+  const auditId = params.get('audit');
   const [address, setAddress] = useState('');
   const [months, setMonths] = useState(0);
   const [job, setJob] = useState<ResponseData | null>(null);
@@ -31,12 +34,12 @@ export function FullAuditForm() {
   useEffect(() => {
     let active = true;
     let id: string | null = null;
-    try { id = new URLSearchParams(window.location.search).get('audit') || sessionStorage.getItem('kyt-full-audit'); } catch { /* storage disabled */ }
+    try { id = auditId || sessionStorage.getItem('kyt-full-audit'); } catch { /* storage disabled */ }
     if (id) post({ id, action: 'status' }).then(data => {
       if (active) { setJob(data); setAddress(data.audit.address); }
     }).catch(() => { /* A saved ID is only a convenience, never an authentication credential. */ });
     return () => { active = false; generation.current++; controller.current?.abort(); };
-  }, []);
+  }, [auditId]);
   async function run(resume: boolean) {
     if (running) return;
     const gen = ++generation.current;
@@ -99,6 +102,9 @@ export function FullAuditForm() {
       </form>
       {error ? <div role="alert" className="notice err">{error} Your saved progress remains available.</div> : null}
       {a ? <>
+        <div className="row row-wrap"><span className="label">Report for</span>
+          <a className="mono break" href={explorer(a.address)} target="_blank" rel="noreferrer">{a.address}</a>
+        </div>
         <div className="notice" aria-live="polite">
           <strong>{verdict === 'OK' ? 'OK within the checked scope' : verdict === 'BLOCKED' ? 'BLOCKED / FLAGGED — do not approve' :
             verdict === 'NOT_OK' ? 'NOT OK — flagged counterparties found' : 'INCOMPLETE — no approval'}</strong>

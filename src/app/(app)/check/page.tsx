@@ -23,7 +23,7 @@ export default async function CheckPage() {
         <h1>Check</h1>
       </header>
       <div className="content stack">
-        <FullAuditForm />
+        <Suspense fallback={null}><FullAuditForm /></Suspense>
         <div className="label">Quick sampled screening / transaction lookup</div>
         <Suspense fallback={null}>
           <CheckForm deepAvailable={deepCheckConfigured()} />
