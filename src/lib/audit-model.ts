@@ -10,7 +10,7 @@ export type FullAudit = {
   kind: 'full-audit'; version: 1; revision: number; address: string;
   phase: 'trc20' | 'native' | 'screen' | 'done';
   startedAt: string; updatedAt: string; before: number; since: number;
-  cursor: string | null; pages: number; trc20Rows: number; nativeRows: number;
+  cursor: string | null; seenCursors?: string[]; pages: number; trc20Rows: number; nativeRows: number;
   peers: AuditPeer[]; targetStatus: BlacklistStatus; targetSanctioned: boolean; targetFlagged: boolean;
   targetCheckedAt: string | null; balances: { usdt: string; trx: string } | null;
   sanctionsUpdatedAt: string | null; lastError: string | null; verificationPass: number; leaseUntil?: number;
@@ -52,7 +52,7 @@ export function recordTransfer(a: FullAudit, t: {
     t.token === 'TRX' ? (direction === 'in' ? 'incomingTrx' : 'outgoingTrx') : null;
   if (key) p[key] = (BigInt(p[key]) + BigInt(t.raw)).toString();
   // Keep evidence bounded, preferring positive-value transfers over zero-value spam.
-  const e = { hash: t.hash, at: t.at, direction, token: t.token, amount: units(t.raw, t.decimals) };
+  const e: AuditEvidence = { hash: t.hash, at: t.at, direction, token: t.token, amount: units(t.raw, t.decimals) };
   if (p.evidence.length < 20) p.evidence.push(e);
   else if (BigInt(t.raw) > 0n) {
     const i = p.evidence.findIndex(x => x.amount === '0');

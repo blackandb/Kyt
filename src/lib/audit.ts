@@ -100,10 +100,11 @@ export async function readHistoryPage(a: FullAudit) {
     const url = new URL(next, API);
     if (url.origin !== API || url.pathname !== path) throw new Error('Unexpected pagination origin or path.');
     const cursor = url.searchParams.get('fingerprint');
-    if (!cursor || cursor === a.cursor) throw new Error('Pagination stopped advancing; scan is incomplete.');
+    if (!cursor || cursor === a.cursor || a.seenCursors?.includes(cursor)) throw new Error('Pagination stopped advancing; scan is incomplete.');
+    a.seenCursors = [...(a.seenCursors || []), cursor];
     a.cursor = cursor;
   } else {
-    a.cursor = null;
+    a.cursor = null; a.seenCursors = [];
     a.phase = native ? 'screen' : 'native';
   }
 }
